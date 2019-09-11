@@ -1,0 +1,23 @@
+{
+    "name": "homebridge-enlighten-power",
+    "version": "0.3.0",
+    "main": "index.js",
+    "description": "Homebridge – Enlighten Power",
+    "author": {
+        "name": "Jeko"
+    },
+    "keywords": [
+        "homebridge-plugin"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/LeJeko/homebridge-enlighten-power"
+    },
+    "engines": {
+        "node": ">=0.12.0",
+        "homebridge": ">=0.2.0"
+    },
+    "dependencies": {
+        "request": "^2.85.0"
+    }
+}
