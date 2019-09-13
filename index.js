@@ -76,7 +76,7 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
     	this.co2CurrentLevel = (power >= 0) ? power : 0;
     }
     else {
-		this.co2CurrentLevel = Math.round(parseFloat(json.production[1].wNow));
+		this.co2CurrentLevel = Math.round(parseFloat(json.current_power));
     }
     this.co2LevelUpdated = true;
     this.log('Enlighten (%s): Current Power = %s W', this.connection, this.co2CurrentLevel);
