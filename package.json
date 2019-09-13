@@ -1,13 +1,16 @@
 {
     "name": "homebridge-enlighten-power",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "main": "index.js",
     "description": "Homebridge – Enlighten Power",
     "author": {
         "name": "Jeko"
     },
     "keywords": [
-        "homebridge-plugin"
+        "homebridge-plugin",
+        "enlighten",
+        "envoy",
+        "solar"
     ],
     "repository": {
         "type": "git",

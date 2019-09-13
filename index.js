@@ -72,13 +72,12 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
     if (!err && response.statusCode == 200) {
     var json = JSON.parse(body);
     if (this.connection == "local") {
-    	let power = parseFloat(json.production[1].wNow);
+    	let power = Math.round(parseFloat(json.production[1].wNow));
     	this.co2CurrentLevel = (power >= 0) ? power : 0;
     }
     else {
-		this.co2CurrentLevel = parseFloat(json.current_power);
+		this.co2CurrentLevel = Math.round(parseFloat(json.production[1].wNow));
     }
-    this.co2CurrentLevel = parseFloat(json.current_power);
     this.co2LevelUpdated = true;
     this.log('Enlighten (%s): Current Power = %s W', this.connection, this.co2CurrentLevel);
     this.setCo2Level();
