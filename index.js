@@ -72,7 +72,7 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
     if (!err && response.statusCode == 200) {
     var json = JSON.parse(body);
     if (this.connection == "local") {
-    	let power = Math.round(parseFloat(json.production[1].wNow));
+    	let power = Math.round(parseFloat(json.production[0].wNow));
     	this.co2CurrentLevel = (power >= 0) ? power : 0;
     }
     else {
