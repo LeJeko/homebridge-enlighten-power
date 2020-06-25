@@ -20,7 +20,10 @@ function AirQualityAccessory(log, config) {
 	}
 	else {
 		this.url = config["url"] || "http://envoy.local/production.json";
-		this.updateInterval = config['update_interval'] || "1"; // every minutes
+    this.updateInterval = config['update_interval'] || "1"; // every minutes
+    // allow change production type and handling current default to 1 
+    temp_type = config["type"] || "eim" ;
+    this.type = (temp_type == "eim") ? 1 : 0;
 	}
   this.co2Threshold = config['power_threshold'];
   this.co2CurrentLevel = 999;
@@ -72,7 +75,7 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
     if (!err && response.statusCode == 200) {
     var json = JSON.parse(body);
     if (this.connection == "local") {
-    	let power = Math.round(parseFloat(json.production[1].wNow));
+    	let power = Math.round(parseFloat(json.production[this.type].wNow));
     	this.co2CurrentLevel = (power >= 0) ? power : 0;
     }
     else {
