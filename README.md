@@ -32,7 +32,7 @@ The plug-in read **eim** value by default but you can override this behavior by 
 
 ## Bonjour
 
-Example config.json for Bonjour (`http://envoy.local/production.json`):
+Example config.json for Bonjour ([http://envoy.local/production.json](http://envoy.local/production.json)):
 
 ```json
 "accessories": [
@@ -107,14 +107,14 @@ In my case, I execute this script every minute to activate my boiler via  Piface
 Thanks to @rfennel who have manage to [get it working](https://github.com/piface/pifacedigitalio/issues/39#issuecomment-633291166) with Buster:
 
 1. Get PIP (PIP3 for Python3)
-`sudo apt-get install python3-pip`
+   `sudo apt-get install python3-pip`
 2. Get the libraries
-`sudo pip3 install pifacedigitalio`
-`sudo pip3 install pifacecommon`
+   `sudo pip3 install pifacedigitalio`
+   `sudo pip3 install pifacecommon`
 3. Make sure the SPI access is enabled to the IO (you get errors when you run the script if you miss this out)
-`sudo sed -i 's/#dtparam=spi=on/dtparam=spi=on/' /boot/config.txt`
-4. Reboot
-`sudo reboot`
+   `sudo sed -i 's/#dtparam=spi=on/dtparam=spi=on/' /boot/config.txt`
+4. Reboot  
+   `sudo reboot`
 
 Script can now be executed with `python3 check_power_local.py`
 
