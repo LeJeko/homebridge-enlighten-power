@@ -1,0 +1,107 @@
+{
+	"pluginAlias": "EnlightenPower",
+	"pluginType": "accessory",
+	"singular": false,
+	"headerDisplay": "This plugin simulates a CO2 air quality accessory that you can switch to the **detected** state when the power produced by your Envoy solar system reaches a threshold.\nYou can use this state to automate other tasks or just to get information. Current power is not displayed directly, but appears in the accessory settings under **Current level** in [ppm], but it is [W].\nIt can work locally (with Bonjour or custom url) or via API.",
+	"schema": {
+		"type": "object",
+		"properties": {
+			"name": {
+				"title": "Accessory name",
+				"type": "string",
+				"required": true,
+				"placeholder": "6000 W",
+				"default": ""
+			},
+			"connection": {
+				"title": "Method",
+				"type": "string",
+				"default": "bonjour",
+				"oneOf": [
+					{
+						"title": "Bonjour",
+						"enum": [
+							"bonjour"
+						]
+					},
+					{
+						"title": "API",
+						"enum": [
+							"api"
+						]
+					},
+					{
+						"title": "Custom URL",
+						"enum": [
+							"url"
+						]
+					}
+				],
+				"required": true
+			},
+			"url": {
+				"title": "Custom URL",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'url';"
+				},
+				"placeholder": "http://envoy_ip/production.json"
+			},
+			"site_id": {
+				"title": "Site ID",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'api';"
+				}
+			},
+			"api_key": {
+				"title": "API Key",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'api';"
+				}
+			},
+			"api_user_id": {
+				"title": "API User ID",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'api';"
+				}
+			},
+			"type": {
+				"title": "Choose production values: inverters and eim",
+				"type": "string",
+				"default": "eim",
+				"oneOf": [
+					{
+						"title": "eim",
+						"enum": [
+							"eim"
+						]
+					},
+					{
+						"title": "inverters",
+						"enum": [
+							"inverters"
+						]
+					}
+				],
+				"required": true,
+				"description": "Please see ReadMe on github fo details"
+			},
+			"update_interval": {
+				"title": "Update interval",
+				"type": "integer",
+				"default": "5",
+				"minimum": 1,
+				"description": "Please note that API data is updated only every 15 minutes and access is limited (https://developer.enphase.com/plans). The free plan allowing to make 10'000 requests per month, by default it refreshes every 5 minutes (12 * 24 * 31 = 8928)."
+			},
+			"power_threshold": {
+				"title": "Power Threshold in [W]",
+				"type": "integer",
+				"default": "1000",
+				"minimum": 1
+			}
+		}
+	}
+}

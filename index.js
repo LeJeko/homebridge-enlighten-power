@@ -1,4 +1,3 @@
-var request = require("request");
 var Service, Characteristic;
 
 module.exports = function(homebridge) {
@@ -69,27 +68,69 @@ AirQualityAccessory.prototype.setCo2Level = function() {
 }
 
 AirQualityAccessory.prototype.getCo2Level = function(callback) {
-  request.get(
-  {url: this.url},
-  function(err, response, body) {
-    if (!err && response.statusCode == 200) {
-    var json = JSON.parse(body);
-    if (this.connection == "local") {
-    	let power = Math.round(parseFloat(json.production[this.type].wNow));
-    	this.co2CurrentLevel = (power >= 0) ? power : 0;
+
+  let url = new URL(this.url)
+  var protocol = (url.protocol == "http") ? require('http') : require('https')
+
+  const options = {
+    hostname: url.hostname,
+    port: url.port,
+    path: url.pathname + url.search,
+    method: 'GET'
+  }
+
+  var req = protocol.request(options, (resp) => {
+
+    this.log.debug("GET response received (%s)", resp.statusCode)
+
+    if (resp.statusCode === '401') {
+      this.log("Verify that you have the correct authenticationToken specified in your configuration.")
+      return
     }
-    else {
-		this.co2CurrentLevel = Math.round(parseFloat(json.current_power));
-    }
-    this.co2LevelUpdated = true;
-    this.log('Enlighten (%s): Current Power = %s W', this.connection, this.co2CurrentLevel);
-    this.setCo2Level();
-    this.setCo2Detected();
-    }
-    else {
-      this.log("Error getting current power (status code %s): %s", response.statusCode, err);
-    }
-  }.bind(this));
+
+    let data = ''
+    // A chunk of data has been received.
+    resp.on('data', (chunk) => {
+      data += chunk
+    })
+
+    // The whole response has been received. Print out the result.
+    resp.on('end', () => {
+
+      if (resp.statusCode == 200) {
+        var json = JSON.parse(data);
+        if (this.connection == "local") {
+          let power = Math.round(parseFloat(json.production[this.type].wNow));
+          this.co2CurrentLevel = (power >= 0) ? power : 0;
+        }
+        else {
+          this.co2CurrentLevel = Math.round(parseFloat(json.current_power));
+        }
+        this.co2LevelUpdated = true;
+        this.log('Enlighten (%s): Current Power = %s W', this.connection, this.co2CurrentLevel);
+        this.setCo2Level();
+        this.setCo2Detected();
+      }
+    })
+  })
+
+  req.on("error", (err) => {
+    this.log("Error getting current power (status code %s): %s", resp.statusCode, err.message)
+  })
+
+  req.on('timeout', function () {
+    // Timeout happend. Server received request, but not handled it
+    // (i.e. doesn't send any response or it took to long).
+    // You don't know what happend.
+    // It will emit 'error' message as well (with ECONNRESET code).
+
+    this.log('timeout')
+    req.destroy
+  })
+
+  req.setTimeout(5000)
+  req.end()
+
   callback(null, this.co2CurrentLevel);
 }
 
