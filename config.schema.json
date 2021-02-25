@@ -25,15 +25,15 @@
 						]
 					},
 					{
-						"title": "API",
-						"enum": [
-							"api"
-						]
-					},
-					{
 						"title": "Custom URL",
 						"enum": [
 							"url"
+						]
+					},
+					{
+						"title": "API",
+						"enum": [
+							"api"
 						]
 					}
 				],
@@ -71,6 +71,9 @@
 			"type": {
 				"title": "Choose production values: inverters and eim",
 				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection !== 'api';"
+				},
 				"default": "eim",
 				"oneOf": [
 					{

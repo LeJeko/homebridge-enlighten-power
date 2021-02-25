@@ -1,3 +1,5 @@
+const { debug } = require('console');
+
 var Service, Characteristic;
 
 module.exports = function(homebridge) {
@@ -9,7 +11,7 @@ module.exports = function(homebridge) {
 function AirQualityAccessory(log, config) {
 
   // Don't load the plugin if these aren't accessible for any reason
-  if (!log) {
+  if (!log || !config) {
     return
   }
 
@@ -26,15 +28,22 @@ function AirQualityAccessory(log, config) {
 		this.url = "https://api.enphaseenergy.com/api/v2/systems/"+this.site_id+"/summary?key="+this.api_key+"&user_id="+this.api_user_id;
 		this.updateInterval = config['update_interval'] || "5"; // every 5 min
 	}
-	else {
-		this.url = config["url"] || "http://envoy.local/production.json";
+  if (this.connection == "bonjour") {
+    this.url = "http://envoy.local/production.json";
+    this.updateInterval = config['update_interval'] || "1"; // every minutes
+    // allow change production type and handling current default to 1 
+    temp_type = config["type"] || "eim" ;
+    this.type = (temp_type == "eim") ? 1 : 0;
+  }
+	if (this.connection == "url") {
+		this.url = config["url"];
     this.updateInterval = config['update_interval'] || "1"; // every minutes
     // allow change production type and handling current default to 1 
     temp_type = config["type"] || "eim" ;
     this.type = (temp_type == "eim") ? 1 : 0;
 	}
   this.co2Threshold = config['power_threshold'];
-  this.co2CurrentLevel = 999;
+  this.co2CurrentLevel = 0;
   this.co2Detected = 0;
   this.co2LevelUpdated = false;
   
@@ -79,7 +88,8 @@ AirQualityAccessory.prototype.setCo2Level = function() {
 AirQualityAccessory.prototype.getCo2Level = function(callback) {
 
   let url = new URL(this.url)
-  var protocol = (url.protocol == "http") ? require('http') : require('https')
+  this.log.debug(url)
+  var protocol = (url.protocol == "http:") ? require('http') : require('https')
 
   const options = {
     hostname: url.hostname,
@@ -92,11 +102,6 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
 
     this.log.debug("GET response received (%s)", resp.statusCode)
 
-    if (resp.statusCode === '401') {
-      this.log("Verify that you have the correct authenticationToken specified in your configuration.")
-      return
-    }
-
     let data = ''
     // A chunk of data has been received.
     resp.on('data', (chunk) => {
@@ -108,23 +113,30 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
 
       if (resp.statusCode == 200) {
         var json = JSON.parse(data);
-        if (this.connection == "bonjour") {
-          let power = Math.round(parseFloat(json.production[this.type].wNow));
-          this.co2CurrentLevel = (power >= 0) ? power : 0;
+        this.log.debug("JSON: %s", json)
+        if (this.connection == "api") {
+          this.co2CurrentLevel = Math.round(parseFloat(json.current_power));
         }
         else {
-          this.co2CurrentLevel = Math.round(parseFloat(json.current_power));
+          let power = Math.round(parseFloat(json.production[this.type].wNow));
+          this.co2CurrentLevel = (power >= 0) ? power : 0;
         }
         this.co2LevelUpdated = true;
         this.log('Enlighten (%s): Current Power = %s W', this.connection, this.co2CurrentLevel);
         this.setCo2Level();
         this.setCo2Detected();
+        callback(null, this.co2CurrentLevel);
+      } else {
+        this.log("Error getting current power: %s : %s",resp.statusCode, resp.statusMessage)
+        callback(null, 0)
       }
+
     })
   })
 
   req.on("error", (err) => {
-    this.log("Error getting current power (status code %s): %s", resp.statusCode, err.message)
+    this.log("Error getting current power: %s - %s : %s",err.code, err.status, err.message)
+    callback(null, 0 )
   })
 
   req.on('timeout', function () {
@@ -140,7 +152,7 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
   req.setTimeout(5000)
   req.end()
 
-  callback(null, this.co2CurrentLevel);
+  // callback(null, this.co2CurrentLevel);
 }
 
 AirQualityAccessory.prototype.setCo2Detected = function() {

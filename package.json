@@ -1,6 +1,6 @@
 {
     "name": "homebridge-enlighten-power",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "main": "index.js",
     "description": "This plugin simulates a CO2 air quality accessory that you can switch to the \"detected\" state when the power produced by your Envoy solar system reaches a threshold.",
     "author": {
