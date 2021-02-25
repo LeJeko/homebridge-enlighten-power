@@ -8,8 +8,18 @@ module.exports = function(homebridge) {
 
 function AirQualityAccessory(log, config) {
   this.log = log;
+
+  // Don't load the plugin if these aren't accessible for any reason
+  if (!log || !api) {
+    return
+  }
+
+  this.log = log
+  
+  this.log("Initialising...")
+
   this.name = config["name"];
-  this.connection = config["connection"] || "local"; // local or api
+  this.connection = config["connection"] || "bonjour"; // local or api
 	if (this.connection == "api") {
 		this.api_key = config["api_key"];
 		this.api_user_id = config["api_user_id"];
@@ -99,7 +109,7 @@ AirQualityAccessory.prototype.getCo2Level = function(callback) {
 
       if (resp.statusCode == 200) {
         var json = JSON.parse(data);
-        if (this.connection == "local") {
+        if (this.connection == "bonjour") {
           let power = Math.round(parseFloat(json.production[this.type].wNow));
           this.co2CurrentLevel = (power >= 0) ? power : 0;
         }
