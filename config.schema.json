@@ -1,5 +1,5 @@
 {
-	"pluginAlias": "EnlightenPower",
+	"pluginAlias": "enlighten-power",
 	"pluginType": "accessory",
 	"singular": false,
 	"headerDisplay": "This plugin simulates a CO2 air quality accessory that you can switch to the **detected** state when the power produced by your Envoy solar system reaches a threshold.\nYou can use this state to automate other tasks or just to get information. Current power is not displayed directly, but appears in the accessory settings under **Current level** in [ppm], but it is [W].\nIt can work locally (with Bonjour or custom url) or via API.",
