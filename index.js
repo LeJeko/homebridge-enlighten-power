@@ -7,10 +7,9 @@ module.exports = function(homebridge) {
 }
 
 function AirQualityAccessory(log, config) {
-  this.log = log;
 
   // Don't load the plugin if these aren't accessible for any reason
-  if (!log || !api) {
+  if (!log) {
     return
   }
 
