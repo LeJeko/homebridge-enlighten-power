@@ -1,25 +1,41 @@
 {
     "name": "homebridge-enlighten-power",
-    "version": "1.1.3",
+    "displayName": "Enlighten Power",
+    "version": "2.0.0",
     "main": "index.js",
-    "description": "This plugin simulates a CO2 air quality accessory that you can switch to the \"detected\" state when the power produced by your Envoy solar system reaches a threshold.",
+    "description": "Homebridge plugin that exposes Enphase Envoy solar production as a CO2 air-quality accessory. Supports local HTTPS access (firmware D8+, Bearer token) and the Enphase Cloud API v4 (OAuth 2.0 refresh_token).",
     "author": {
         "name": "LeJeko"
     },
+    "license": "MIT",
     "keywords": [
         "homebridge-plugin",
         "enlighten",
+        "enphase",
         "envoy",
         "solar",
         "power"
     ],
     "repository": {
         "type": "git",
-        "url": "https://github.com/LeJeko/homebridge-enlighten-power"
+        "url": "git+https://github.com/LeJeko/homebridge-enlighten-power.git"
     },
+    "files": [
+        "index.js",
+        "config.schema.json",
+        "README.md",
+        "README.fr.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        "examples/*.py"
+    ],
+    "bugs": {
+        "url": "https://github.com/LeJeko/homebridge-enlighten-power/issues"
+    },
+    "homepage": "https://github.com/LeJeko/homebridge-enlighten-power#readme",
     "engines": {
-        "node": ">=0.12.0",
-        "homebridge": ">=0.2.0"
+        "node": "^22.12.0 || ^24.0.0",
+        "homebridge": "^1.6.0 || ^2.0.0"
     },
     "dependencies": {
     }
