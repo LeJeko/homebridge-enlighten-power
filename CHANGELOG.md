@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-05-22
+
+Minor, **non-breaking** release. Existing 2.0.x configs keep working as-is.
+
+### Added
+
+- **Auto-refresh of the local Envoy token.** As an alternative to manually generating a JWT at <https://entrez.enphaseenergy.com> (which expires after ~1 year), you can now provide your Enlighten credentials in `config.json`:
+  - `enlighten_user` — your Enlighten email
+  - `enlighten_pass` — your Enlighten password
+  - `envoy_serial` — the serial number of your Envoy / IQ Gateway
+
+  The plugin then logs in to Enlighten, requests a fresh JWT from `entrez.enphaseenergy.com`, caches it in memory, and renews it transparently when it gets close to expiry (or after a `401` from the Envoy). The static `token` field still works and takes precedence if both are set.
+
+- **Configurable HomeKit accessory type** via `accessory_type`:
+  - `co2sensor` (default — historical behaviour: production in ppm + Detected flag)
+  - `motion` — relay-like behaviour as a Motion sensor
+  - `occupancy` — same as Motion, exposed as an Occupancy sensor
+  - `contact` — Contact sensor, "open" when above threshold
+  - `lightsensor` — exposes the current power directly as lux (capped at 100 000)
+
+### Notes
+
+- No config migration required. If you don't set `enlighten_user` / `enlighten_pass` / `envoy_serial`, the plugin keeps using your `token` exactly as before. If you don't set `accessory_type`, you stay on the CO2 sensor.
+
 ## [2.0.1] — 2026-05-21
 
 ### Changed

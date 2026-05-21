@@ -59,13 +59,27 @@ Les firmwares Envoy récents exigent **HTTPS** + **token Bearer** pour tout acc�
 
 ### Obtenir votre token local
 
-Générez un token longue durée depuis votre compte Enphase :
+Deux options au choix :
 
-[https://entrez.enphaseenergy.com](https://entrez.enphaseenergy.com)
+**A. Générer un token statique une fois** (par défaut depuis la 2.0.0)
+
+Rendez-vous sur votre compte Enphase à l'adresse [https://entrez.enphaseenergy.com](https://entrez.enphaseenergy.com), générez un JWT longue durée, et collez-le dans `config.json` comme `"token": "…"`. À renouveler manuellement à peu près une fois par an.
+
+**B. Laisser le plugin renouveler le token automatiquement** (depuis la 2.1.0)
+
+Fournissez vos identifiants Enlighten et le numéro de série de l'Envoy à la place du token statique :
+
+```json
+"enlighten_user": "vous@example.com",
+"enlighten_pass": "<votre mot de passe Enlighten>",
+"envoy_serial":   "<numéro de série de votre Envoy / IQ Gateway>"
+```
+
+Au démarrage, le plugin se connecte à Enlighten, génère un JWT frais via `entrez.enphaseenergy.com`, le met en cache mémoire, et le renouvelle automatiquement à l'approche de l'expiration (ou après un `401` de l'Envoy). Plus de rotation manuelle. Si vous laissez également le champ `token` renseigné, c'est le token statique qui prime.
 
 ## Bonjour
 
-Exemple de `config.json` pour Bonjour ([https://envoy.localdomain/production.json](https://envoy.localdomain/production.json)) :
+Exemple de `config.json` pour Bonjour ([https://envoy.localdomain/production.json](https://envoy.localdomain/production.json)) — avec token statique :
 
 ```json
 "accessories": [
@@ -74,6 +88,24 @@ Exemple de `config.json` pour Bonjour ([https://envoy.localdomain/production.jso
         "name": "> 6000 W",
         "connection": "bonjour",
         "token": "eyJraWQiOiI......biQETMEQ",
+        "type": "eim",
+        "update_interval": 1,
+        "power_threshold": 6000
+        }
+]
+```
+
+Le même exemple avec auto-refresh (sans token statique) :
+
+```json
+"accessories": [
+        {
+        "accessory": "enlighten-power",
+        "name": "> 6000 W",
+        "connection": "bonjour",
+        "enlighten_user": "vous@example.com",
+        "enlighten_pass": "MOT_DE_PASSE_ENLIGHTEN",
+        "envoy_serial": "1234XXXXXXXX",
         "type": "eim",
         "update_interval": 1,
         "power_threshold": 6000
@@ -184,6 +216,33 @@ La réponse JSON ressemble à :
         "system_id": "SYSTEM_ID",
         "refresh_token": "REFRESH_TOKEN",
         "update_interval": 5,
+        "power_threshold": 6000
+        }
+]
+```
+
+## Type d'accessoire HomeKit
+
+Depuis la 2.1.0 vous pouvez choisir comment l'accessoire apparaît dans HomeKit via le champ `accessory_type` (fonctionne pour tous les modes de connexion) :
+
+| Valeur | Service HomeKit | Comportement |
+| --- | --- | --- |
+| `co2sensor` (défaut) | Capteur CO2 | Expose la puissance courante en ppm + un drapeau Détecté quand au-dessus du seuil. Comportement historique. |
+| `motion` | Détecteur de mouvement | Détecté = "mouvement" quand au-dessus du seuil. |
+| `occupancy` | Détecteur de présence | Détecté = "occupé" quand au-dessus du seuil. |
+| `contact` | Capteur de contact | "Ouvert" au-dessus du seuil, "Fermé" sinon. |
+| `lightsensor` | Capteur de luminosité | Expose la puissance courante directement en lux (plafonné à 100 000). |
+
+Exemple :
+
+```json
+"accessories": [
+        {
+        "accessory": "enlighten-power",
+        "name": "Production solaire",
+        "connection": "bonjour",
+        "token": "eyJraWQiOiI......biQETMEQ",
+        "accessory_type": "lightsensor",
         "power_threshold": 6000
         }
 ]

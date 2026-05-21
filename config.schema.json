@@ -48,13 +48,49 @@
 				"placeholder": "https://envoy_ip/production.json"
 			},
 			"token": {
-				"title": "Bearer token",
+				"title": "Bearer token (static)",
 				"type": "string",
 				"condition": {
 					"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
 				},
-				"required": true,
-				"description": "Long-lived JWT token required by recent Envoy firmware for local HTTPS access. Generate it from https://entrez.enphaseenergy.com"
+				"description": "Long-lived JWT token for local HTTPS access. Generate it manually at https://entrez.enphaseenergy.com. Leave empty if you fill the Enlighten credentials below — the plugin will then refresh the token automatically."
+			},
+			"enlighten_user": {
+				"title": "Enlighten username (email) — auto-refresh",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
+				},
+				"description": "Your Enlighten account email. Combined with the password and serial below, the plugin logs in and renews the local Envoy token automatically (no manual token rotation)."
+			},
+			"enlighten_pass": {
+				"title": "Enlighten password — auto-refresh",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
+				},
+				"description": "Password of the Enlighten account above."
+			},
+			"envoy_serial": {
+				"title": "Envoy serial number — auto-refresh",
+				"type": "string",
+				"condition": {
+					"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
+				},
+				"description": "Serial number of your Envoy / IQ Gateway (visible on the device or in Enlighten under 'Devices'). Required by Entrez to mint the token."
+			},
+			"accessory_type": {
+				"title": "HomeKit accessory type",
+				"type": "string",
+				"default": "co2sensor",
+				"oneOf": [
+					{ "title": "CO2 sensor (default — exposes power in ppm and a Detected flag)", "enum": ["co2sensor"] },
+					{ "title": "Motion sensor (Detected when above threshold)", "enum": ["motion"] },
+					{ "title": "Occupancy sensor (Detected when above threshold)", "enum": ["occupancy"] },
+					{ "title": "Contact sensor (Open when above threshold)", "enum": ["contact"] },
+					{ "title": "Light sensor (exposes power as lux)", "enum": ["lightsensor"] }
+				],
+				"description": "How HomeKit will display this accessory. The CO2 sensor type exposes both the current power (as ppm) and a boolean Detected flag — switching with the latter is the historical behaviour. The other types only expose the binary state, except 'lightsensor' which displays the current power in lux."
 			},
 			"system_id": {
 				"title": "System ID",

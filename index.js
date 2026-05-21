@@ -2,6 +2,7 @@
 
 const http = require("http");
 const https = require("https");
+const querystring = require("querystring");
 
 let Service, Characteristic;
 
@@ -10,6 +11,8 @@ module.exports = (homebridge) => {
   Characteristic = homebridge.hap.Characteristic;
   homebridge.registerAccessory("homebridge-enlighten-power", "enlighten-power", AirQualityAccessory);
 };
+
+const ACCESSORY_TYPES = ["co2sensor", "motion", "occupancy", "contact", "lightsensor"];
 
 class AirQualityAccessory {
   constructor(log, config) {
@@ -21,9 +24,15 @@ class AirQualityAccessory {
 
     this.name = config.name;
     this.connection = config.connection || "bonjour";
-    this.co2Threshold = config.power_threshold;
-    this.co2CurrentLevel = 0;
-    this.co2Detected = 0;
+    this.threshold = config.power_threshold;
+    this.currentPower = 0;
+    this.detected = 0;
+
+    const wantedType = (config.accessory_type || "co2sensor").toLowerCase();
+    this.accessoryType = ACCESSORY_TYPES.includes(wantedType) ? wantedType : "co2sensor";
+    if (wantedType !== this.accessoryType) {
+      this.log.warn("Unknown accessory_type '%s', falling back to 'co2sensor'.", wantedType);
+    }
 
     if (this.connection === "api") {
       this.api_key = config.api_key;
@@ -43,20 +52,21 @@ class AirQualityAccessory {
         ? "https://envoy.localdomain/production.json"
         : config.url;
       this.token = config.token;
+      this.enlighten_user = config.enlighten_user;
+      this.enlighten_pass = config.enlighten_pass;
+      this.envoy_serial = config.envoy_serial;
+      this.cachedLocalToken = null;
       this.updateInterval = config.update_interval || 1;
       const productionType = config.type || "eim";
       this.type = (productionType === "eim") ? 1 : 0;
-      if (!this.token) {
-        this.log.error("Missing 'token' in config: a Bearer token is required for local HTTPS access to the Envoy.");
+      const hasStatic = !!this.token;
+      const hasAutoRefresh = !!(this.enlighten_user && this.enlighten_pass && this.envoy_serial);
+      if (!hasStatic && !hasAutoRefresh) {
+        this.log.error("Missing local Envoy auth: provide either 'token', or 'enlighten_user' + 'enlighten_pass' + 'envoy_serial' for auto-refresh.");
       }
     }
 
-    this.service = new Service.CarbonDioxideSensor(this.name);
-    this.service.getCharacteristic(Characteristic.CarbonDioxideLevel)
-      .onGet(() => this.co2CurrentLevel);
-    this.service.getCharacteristic(Characteristic.CarbonDioxideDetected)
-      .onGet(() => this.co2Detected);
-
+    this.service = this.buildSensorService();
     this.informationService = new Service.AccessoryInformation()
       .setCharacteristic(Characteristic.Manufacturer, "Homebridge")
       .setCharacteristic(Characteristic.Model, "Enlighten")
@@ -66,29 +76,218 @@ class AirQualityAccessory {
     setInterval(() => this.poll(), this.updateInterval * 60000);
   }
 
+  buildSensorService() {
+    switch (this.accessoryType) {
+      case "motion": {
+        const s = new Service.MotionSensor(this.name);
+        s.getCharacteristic(Characteristic.MotionDetected).onGet(() => this.detected === 1);
+        return s;
+      }
+      case "occupancy": {
+        const s = new Service.OccupancySensor(this.name);
+        s.getCharacteristic(Characteristic.OccupancyDetected).onGet(() =>
+          this.detected === 1
+            ? Characteristic.OccupancyDetected.OCCUPANCY_DETECTED
+            : Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
+        return s;
+      }
+      case "contact": {
+        const s = new Service.ContactSensor(this.name);
+        // Above threshold → CONTACT_NOT_DETECTED (open); below → CONTACT_DETECTED (closed)
+        s.getCharacteristic(Characteristic.ContactSensorState).onGet(() =>
+          this.detected === 1
+            ? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : Characteristic.ContactSensorState.CONTACT_DETECTED);
+        return s;
+      }
+      case "lightsensor": {
+        const s = new Service.LightSensor(this.name);
+        s.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+          .setProps({ minValue: 0.0001, maxValue: 100000 })
+          .onGet(() => Math.max(0.0001, Math.min(100000, this.currentPower)));
+        return s;
+      }
+      case "co2sensor":
+      default: {
+        const s = new Service.CarbonDioxideSensor(this.name);
+        s.getCharacteristic(Characteristic.CarbonDioxideLevel).onGet(() => this.currentPower);
+        s.getCharacteristic(Characteristic.CarbonDioxideDetected).onGet(() => this.detected);
+        return s;
+      }
+    }
+  }
+
+  updateSensorCharacteristics() {
+    switch (this.accessoryType) {
+      case "motion":
+        this.service.updateCharacteristic(Characteristic.MotionDetected, this.detected === 1);
+        break;
+      case "occupancy":
+        this.service.updateCharacteristic(Characteristic.OccupancyDetected,
+          this.detected === 1
+            ? Characteristic.OccupancyDetected.OCCUPANCY_DETECTED
+            : Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED);
+        break;
+      case "contact":
+        this.service.updateCharacteristic(Characteristic.ContactSensorState,
+          this.detected === 1
+            ? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : Characteristic.ContactSensorState.CONTACT_DETECTED);
+        break;
+      case "lightsensor":
+        this.service.updateCharacteristic(Characteristic.CurrentAmbientLightLevel,
+          Math.max(0.0001, Math.min(100000, this.currentPower)));
+        break;
+      case "co2sensor":
+      default:
+        this.service.updateCharacteristic(Characteristic.CarbonDioxideLevel, this.currentPower);
+        this.service.updateCharacteristic(Characteristic.CarbonDioxideDetected, this.detected);
+        break;
+    }
+  }
+
   async poll() {
     try {
       const power = await this.fetchCurrentPower();
-      this.co2CurrentLevel = (power >= 0) ? power : 0;
-      this.co2Detected = (this.co2CurrentLevel >= this.co2Threshold) ? 1 : 0;
-      this.log("Enlighten (%s): Current Power = %s W", this.connection, this.co2CurrentLevel);
-      this.service.updateCharacteristic(Characteristic.CarbonDioxideLevel, this.co2CurrentLevel);
-      this.service.updateCharacteristic(Characteristic.CarbonDioxideDetected, this.co2Detected);
+      this.currentPower = (power >= 0) ? power : 0;
+      this.detected = (this.currentPower >= this.threshold) ? 1 : 0;
+      this.log("Enlighten (%s, %s): Current Power = %s W", this.connection, this.accessoryType, this.currentPower);
+      this.updateSensorCharacteristics();
     } catch (err) {
       this.log("Error getting current power: %s", err.message);
     }
   }
 
   async fetchCurrentPower() {
-    let accessToken = null;
+    let token = null;
     if (this.connection === "api") {
-      accessToken = await this.refreshAccessToken();
+      token = await this.refreshAccessToken();
+    } else {
+      token = await this.ensureLocalToken();
     }
-    const json = await this.requestJson(accessToken);
+    const json = await this.requestJson(token);
     if (this.connection === "api") {
       return Math.round(parseFloat(json.current_power));
     }
     return Math.round(parseFloat(json.production[this.type].wNow));
+  }
+
+  async ensureLocalToken() {
+    if (this.token) {
+      return this.token;
+    }
+    if (this.cachedLocalToken && !this.isTokenExpiringSoon(this.cachedLocalToken)) {
+      return this.cachedLocalToken;
+    }
+    if (!this.enlighten_user || !this.enlighten_pass || !this.envoy_serial) {
+      throw new Error("Missing local Envoy auth credentials");
+    }
+    this.log("Logging in to Enlighten to refresh the local Envoy token...");
+    const sessionId = await this.loginToEnlighten();
+    const token = await this.fetchTokenFromEntrez(sessionId);
+    this.cachedLocalToken = token;
+    const exp = this.tokenExpiryMs(token);
+    if (exp) {
+      const days = Math.round((exp - Date.now()) / 86400000);
+      this.log("Local Envoy token refreshed (expires in ~%s days).", days);
+    } else {
+      this.log("Local Envoy token refreshed.");
+    }
+    return token;
+  }
+
+  loginToEnlighten() {
+    return new Promise((resolve, reject) => {
+      const body = querystring.stringify({
+        "user[email]": this.enlighten_user,
+        "user[password]": this.enlighten_pass
+      });
+      const options = {
+        hostname: "enlighten.enphaseenergy.com",
+        path: "/login/login.json",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(body),
+          "Accept": "application/json"
+        }
+      };
+      const req = https.request(options, (resp) => {
+        let data = "";
+        resp.on("data", (c) => { data += c; });
+        resp.on("end", () => {
+          if (resp.statusCode !== 200) {
+            return reject(new Error(`Enlighten login failed: HTTP ${resp.statusCode} ${resp.statusMessage}`));
+          }
+          try {
+            const json = JSON.parse(data);
+            if (!json.session_id) {
+              return reject(new Error("Enlighten login response missing session_id"));
+            }
+            resolve(json.session_id);
+          } catch (e) {
+            reject(new Error("Enlighten login response is not JSON"));
+          }
+        });
+      });
+      req.on("error", reject);
+      req.write(body);
+      req.end();
+    });
+  }
+
+  fetchTokenFromEntrez(sessionId) {
+    return new Promise((resolve, reject) => {
+      const body = JSON.stringify({
+        session_id: sessionId,
+        serial_num: this.envoy_serial,
+        username: this.enlighten_user
+      });
+      const options = {
+        hostname: "entrez.enphaseenergy.com",
+        path: "/tokens",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+          "Accept": "text/plain"
+        }
+      };
+      const req = https.request(options, (resp) => {
+        let data = "";
+        resp.on("data", (c) => { data += c; });
+        resp.on("end", () => {
+          if (resp.statusCode !== 200) {
+            return reject(new Error(`Entrez token request failed: HTTP ${resp.statusCode} ${resp.statusMessage} - ${data}`));
+          }
+          const token = data.trim();
+          if (!token) {
+            return reject(new Error("Entrez returned an empty token"));
+          }
+          resolve(token);
+        });
+      });
+      req.on("error", reject);
+      req.write(body);
+      req.end();
+    });
+  }
+
+  tokenExpiryMs(token) {
+    try {
+      const parts = token.split(".");
+      if (parts.length < 2) return null;
+      const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
+  isTokenExpiringSoon(token) {
+    const exp = this.tokenExpiryMs(token);
+    if (!exp) return false;
+    return exp - Date.now() < 7 * 86400000;
   }
 
   refreshAccessToken() {
@@ -149,7 +348,7 @@ class AirQualityAccessory {
     });
   }
 
-  requestJson(accessToken) {
+  requestJson(token) {
     const url = new URL(this.url);
     this.log.debug(url);
     const protocol = (url.protocol === "http:") ? http : https;
@@ -165,11 +364,8 @@ class AirQualityAccessory {
     if (url.protocol === "https:" && (this.connection === "bonjour" || this.connection === "url")) {
       options.rejectUnauthorized = false;
     }
-    if (this.token && (this.connection === "bonjour" || this.connection === "url")) {
-      options.headers.Authorization = `Bearer ${this.token}`;
-    }
-    if (this.connection === "api" && accessToken) {
-      options.headers.Authorization = `Bearer ${accessToken}`;
+    if (token) {
+      options.headers.Authorization = `Bearer ${token}`;
     }
 
     return new Promise((resolve, reject) => {
@@ -179,10 +375,13 @@ class AirQualityAccessory {
         resp.on("data", (chunk) => { data += chunk; });
         resp.on("end", () => {
           if (resp.statusCode !== 200) {
-            if (this.connection === "api" && resp.statusCode === 401) {
-              // Cached access token rejected before its expiry — force a refresh next poll
-              this.access_token = null;
-              this.access_token_expires_at = 0;
+            if (resp.statusCode === 401) {
+              if (this.connection === "api") {
+                this.access_token = null;
+                this.access_token_expires_at = 0;
+              } else if (!this.token) {
+                this.cachedLocalToken = null;
+              }
             }
             return reject(new Error(`HTTP ${resp.statusCode} ${resp.statusMessage || ""}`));
           }

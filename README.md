@@ -59,13 +59,27 @@ Recent Envoy firmwares require **HTTPS** with a **Bearer token** for any local a
 
 ### Get your local token
 
-Generate a long-lived token from your Enphase account:
+Two options, pick one:
 
-[https://entrez.enphaseenergy.com](https://entrez.enphaseenergy.com)
+**A. Generate a static token once** (default since 2.0.0)
+
+Visit your Enphase account at [https://entrez.enphaseenergy.com](https://entrez.enphaseenergy.com), generate a long-lived JWT, and paste it into `config.json` as `"token": "…"`. Manual rotation roughly once a year when it expires.
+
+**B. Let the plugin auto-refresh the token** (since 2.1.0)
+
+Provide your Enlighten credentials and Envoy serial number instead of a static token:
+
+```json
+"enlighten_user": "you@example.com",
+"enlighten_pass": "<your Enlighten password>",
+"envoy_serial":   "<your Envoy / IQ Gateway serial number>"
+```
+
+The plugin then logs in to Enlighten on startup, mints a fresh JWT via `entrez.enphaseenergy.com`, caches it in memory, and re-fetches one transparently when it gets close to expiry (or after a `401` from the Envoy). No more manual rotation. If you leave the `token` field filled in addition to these, the static token takes precedence.
 
 ## Bonjour
 
-Example config.json for Bonjour ([https://envoy.localdomain/production.json](https://envoy.localdomain/production.json)):
+Example config.json for Bonjour ([https://envoy.localdomain/production.json](https://envoy.localdomain/production.json)) — static token:
 
 ```json
 "accessories": [
@@ -74,6 +88,24 @@ Example config.json for Bonjour ([https://envoy.localdomain/production.json](htt
         "name": "> 6000 W",
         "connection": "bonjour",
         "token": "eyJraWQiOiI......biQETMEQ",
+        "type": "eim",
+        "update_interval": 1,
+        "power_threshold": 6000
+        }
+]
+```
+
+Same example with auto-refresh (no static token):
+
+```json
+"accessories": [
+        {
+        "accessory": "enlighten-power",
+        "name": "> 6000 W",
+        "connection": "bonjour",
+        "enlighten_user": "you@example.com",
+        "enlighten_pass": "MY_ENLIGHTEN_PASSWORD",
+        "envoy_serial": "1234XXXXXXXX",
         "type": "eim",
         "update_interval": 1,
         "power_threshold": 6000
@@ -184,6 +216,33 @@ The JSON response looks like:
         "system_id": "SYSTEM_ID",
         "refresh_token": "REFRESH_TOKEN",
         "update_interval": 5,
+        "power_threshold": 6000
+        }
+]
+```
+
+## HomeKit accessory type
+
+Since 2.1.0 you can pick how the accessory appears in HomeKit via the `accessory_type` field (works the same for all connection modes):
+
+| Value | HomeKit service | Behaviour |
+| --- | --- | --- |
+| `co2sensor` (default) | Carbon Dioxide sensor | Exposes the current power in ppm + a Detected flag when above the threshold. Historical behaviour. |
+| `motion` | Motion sensor | Detected = "motion" when above the threshold. |
+| `occupancy` | Occupancy sensor | Detected = "occupied" when above the threshold. |
+| `contact` | Contact sensor | "Open" when above the threshold, "Closed" otherwise. |
+| `lightsensor` | Light sensor | Exposes the current power directly as lux (capped at 100 000). |
+
+Example:
+
+```json
+"accessories": [
+        {
+        "accessory": "enlighten-power",
+        "name": "Solar production",
+        "connection": "bonjour",
+        "token": "eyJraWQiOiI......biQETMEQ",
+        "accessory_type": "lightsensor",
         "power_threshold": 6000
         }
 ]
