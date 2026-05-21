@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — 2026-05-21
+
+### Changed
+
+- `displayName` set to `Homebridge Enlighten Power` so the Homebridge plugin browser shows the prefixed name on the plugin card.
+
+### Added
+
+- `funding` field pointing to PayPal — activates the donation heart in the Homebridge plugin UI.
+
 ## [2.0.0] — 2026-05-21
 
 > ⚠️ **Breaking release.** This version requires a `config.json` migration **and** an updated Envoy / Enphase setup. Homebridge will fail to load the accessory if you upgrade without adapting your configuration. Read the migration notes below before running `npm update`.

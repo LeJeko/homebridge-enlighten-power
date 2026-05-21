@@ -1,7 +1,7 @@
 {
     "name": "homebridge-enlighten-power",
-    "displayName": "Enlighten Power",
-    "version": "2.0.0",
+    "displayName": "Homebridge Enlighten Power",
+    "version": "2.0.1",
     "main": "index.js",
     "description": "Homebridge plugin that exposes Enphase Envoy solar production as a CO2 air-quality accessory. Supports local HTTPS access (firmware D8+, Bearer token) and the Enphase Cloud API v4 (OAuth 2.0 refresh_token).",
     "author": {
@@ -33,6 +33,10 @@
         "url": "https://github.com/LeJeko/homebridge-enlighten-power/issues"
     },
     "homepage": "https://github.com/LeJeko/homebridge-enlighten-power#readme",
+    "funding": {
+        "type": "paypal",
+        "url": "https://www.paypal.com/donate?hosted_button_id=LU7BSTQF3DEZQ"
+    },
     "engines": {
         "node": "^22.12.0 || ^24.0.0",
         "homebridge": "^1.6.0 || ^2.0.0"
