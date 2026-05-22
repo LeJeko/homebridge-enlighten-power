@@ -59,10 +59,26 @@ class AirQualityAccessory {
       this.updateInterval = config.update_interval || 1;
       const productionType = config.type || "eim";
       this.type = (productionType === "eim") ? 1 : 0;
-      const hasStatic = !!this.token;
-      const hasAutoRefresh = !!(this.enlighten_user && this.enlighten_pass && this.envoy_serial);
-      if (!hasStatic && !hasAutoRefresh) {
-        this.log.error("Missing local Envoy auth: provide either 'token', or 'enlighten_user' + 'enlighten_pass' + 'envoy_serial' for auto-refresh.");
+
+      const hasStaticToken = !!this.token;
+      const hasAutoRefreshCreds = !!(this.enlighten_user && this.enlighten_pass && this.envoy_serial);
+
+      // Resolve which local auth method to use.
+      //   - 'auto_refresh' / 'static_token' forces the method explicitly.
+      //   - When unset (legacy configs), infer from which fields are filled,
+      //     with static token taking precedence if both groups are present.
+      if (config.auth_method === "auto_refresh") {
+        this.useAutoRefresh = true;
+      } else if (config.auth_method === "static_token") {
+        this.useAutoRefresh = false;
+      } else {
+        this.useAutoRefresh = !hasStaticToken && hasAutoRefreshCreds;
+      }
+
+      if (this.useAutoRefresh && !hasAutoRefreshCreds) {
+        this.log.error("Auto-refresh method requires 'enlighten_user', 'enlighten_pass' and 'envoy_serial'.");
+      } else if (!this.useAutoRefresh && !hasStaticToken) {
+        this.log.error("Static-token method requires a 'token'. Alternatively, set auth_method=auto_refresh with Enlighten credentials.");
       }
     }
 
@@ -173,7 +189,10 @@ class AirQualityAccessory {
   }
 
   async ensureLocalToken() {
-    if (this.token) {
+    if (!this.useAutoRefresh) {
+      if (!this.token) {
+        throw new Error("Missing local Envoy token");
+      }
       return this.token;
     }
     if (this.cachedLocalToken && !this.isTokenExpiringSoon(this.cachedLocalToken)) {
@@ -379,7 +398,7 @@ class AirQualityAccessory {
               if (this.connection === "api") {
                 this.access_token = null;
                 this.access_token_expires_at = 0;
-              } else if (!this.token) {
+              } else if (this.useAutoRefresh) {
                 this.cachedLocalToken = null;
               }
             }

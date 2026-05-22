@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] — 2026-05-22
+
+UX polish on the 2.1.0 settings GUI — no runtime behaviour change for existing configs.
+
+### Added
+
+- New optional `auth_method` selector for local connection modes (`bonjour`, `url`):
+  - `static_token` — only the `token` field is shown.
+  - `auto_refresh` — only the `enlighten_user` / `enlighten_pass` / `envoy_serial` fields are shown.
+
+  This makes the Homebridge plugin settings GUI adapt to the chosen method instead of always showing all four credential fields at once.
+
+### Changed
+
+- Documentation: README and `README.fr.md` rewritten to clearly separate the **Homebridge plugin** (with its three connection methods) from the **companion Python scripts** (independent of Homebridge, optional).
+- When both `token` and `enlighten_*` fields are set, `auth_method` (if specified) is now the explicit tie-breaker. Without `auth_method`, the legacy precedence is preserved: `token` wins.
+
 ## [2.1.0] — 2026-05-22
 
 Minor, **non-breaking** release. Existing 2.0.x configs keep working as-is.

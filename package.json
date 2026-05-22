@@ -1,7 +1,7 @@
 {
     "name": "homebridge-enlighten-power",
     "displayName": "Homebridge Enlighten Power",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "main": "index.js",
     "description": "Homebridge plugin that exposes Enphase Envoy solar production as a CO2 air-quality accessory. Supports local HTTPS access (firmware D8+, Bearer token) and the Enphase Cloud API v4 (OAuth 2.0 refresh_token).",
     "author": {
