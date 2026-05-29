@@ -1,87 +1,87 @@
 {
-	"pluginAlias": "enlighten-power",
-	"pluginType": "accessory",
-	"singular": false,
-	"headerDisplay": "This plugin simulates a CO2 air quality accessory that you can switch to the **detected** state when the power produced by your Envoy solar system reaches a threshold.\nYou can use this state to automate other tasks or just to get information. Current power is not displayed directly, but appears in the accessory settings under **Current level** in [ppm], but the value is in [W].\nIt can talk to your Envoy locally over HTTPS with a Bearer token (firmware D8+, hostname `envoy.localdomain` — get the token at https://entrez.enphaseenergy.com), or via the Enphase Cloud **API v4** (OAuth 2.0 with client_id/client_secret/refresh_token — the plugin renews the access token automatically).",
+	"pluginAlias": "EnlightenPower",
+	"pluginType": "platform",
+	"singular": true,
+	"headerDisplay": "Expose your Enphase Envoy solar system to HomeKit as one or more sensors.\n\n**All accessories share a single connection and authentication** — one poll per cycle regardless of how many accessories you configure.\n\n| Connection | Measurement | Token renewal |\n|---|---|---|\n| Local Bonjour | production + consumption | static or auto |\n| Local custom URL | production + consumption | static or auto |\n| Cloud API v4 | production only | automatic (OAuth 2.0) |",
+	"footerDisplay": "See the [README](https://github.com/LeJeko/homebridge-enlighten-power#readme) for setup instructions and the migration guide from v2.",
 	"schema": {
 		"type": "object",
 		"properties": {
 			"name": {
-				"title": "Accessory name",
+				"title": "Platform name",
 				"type": "string",
-				"required": true,
-				"placeholder": "6000 W",
-				"default": ""
+				"default": "Enlighten Power"
 			},
 			"connection": {
 				"title": "Connection",
 				"type": "string",
 				"default": "bonjour",
+				"required": true,
 				"oneOf": [
 					{ "title": "Local — Bonjour (envoy.localdomain)", "enum": ["bonjour"] },
 					{ "title": "Local — Custom URL", "enum": ["url"] },
 					{ "title": "Cloud API v4 (OAuth 2.0)", "enum": ["api"] }
-				],
-				"required": true,
-				"description": "How the plugin reaches your Envoy. The local methods use HTTPS + a Bearer JWT. The Cloud API uses OAuth 2.0."
+				]
 			},
 			"url": {
-				"title": "Custom URL",
+				"title": "Envoy base URL",
 				"type": "string",
+				"placeholder": "https://192.168.1.x",
 				"condition": {
 					"functionBody": "return model.connection === 'url';"
 				},
-				"placeholder": "https://envoy_ip/production.json",
-				"description": "Full URL of the Envoy production endpoint. Use this if Bonjour does not resolve `envoy.localdomain` on your network."
+				"description": "Base URL of the Envoy. The plugin appends /ivp/meters and /ivp/meters/readings automatically."
 			},
 			"auth_method": {
-				"title": "Local authentication method",
+				"title": "Authentication method",
 				"type": "string",
 				"default": "static_token",
 				"condition": {
 					"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
 				},
 				"oneOf": [
-					{ "title": "Static token (manual, generated once at entrez.enphaseenergy.com)", "enum": ["static_token"] },
-					{ "title": "Auto-refresh (Enlighten user + password + Envoy serial — the plugin renews the JWT itself)", "enum": ["auto_refresh"] }
-				],
-				"description": "Pick how the plugin obtains the Bearer JWT for the local Envoy HTTPS API."
+					{ "title": "Static token — generate once at entrez.enphaseenergy.com", "enum": ["static_token"] },
+					{ "title": "Auto-refresh — plugin renews the token using your Enlighten credentials", "enum": ["auto_refresh"] }
+				]
 			},
 			"token": {
-				"title": "Bearer token (static)",
+				"title": "Bearer token",
 				"type": "string",
+				"placeholder": "eyJraWQiOiI…",
 				"condition": {
 					"functionBody": "return (model.connection === 'bonjour' || model.connection === 'url') && model.auth_method !== 'auto_refresh';"
 				},
-				"description": "Long-lived JWT for local HTTPS access. Generate it at https://entrez.enphaseenergy.com. Expires after ~1 year; you have to renew it manually."
+				"description": "Long-lived JWT from entrez.enphaseenergy.com. Expires after ~1 year."
 			},
 			"enlighten_user": {
-				"title": "Enlighten username (email)",
+				"title": "Enlighten email",
 				"type": "string",
+				"placeholder": "you@example.com",
+				"format": "email",
 				"condition": {
 					"functionBody": "return (model.connection === 'bonjour' || model.connection === 'url') && model.auth_method === 'auto_refresh';"
-				},
-				"description": "Email of your Enlighten account. Used by the plugin to log in and request a fresh JWT from Entrez."
+				}
 			},
 			"enlighten_pass": {
 				"title": "Enlighten password",
 				"type": "string",
 				"condition": {
 					"functionBody": "return (model.connection === 'bonjour' || model.connection === 'url') && model.auth_method === 'auto_refresh';"
-				},
-				"description": "Password of the Enlighten account above. Stored in plain text in config.json — same trust level as your other Homebridge credentials."
+				}
 			},
 			"envoy_serial": {
 				"title": "Envoy serial number",
 				"type": "string",
+				"placeholder": "1234XXXXXXXX",
 				"condition": {
 					"functionBody": "return (model.connection === 'bonjour' || model.connection === 'url') && model.auth_method === 'auto_refresh';"
 				},
-				"description": "Serial number of your Envoy / IQ Gateway (visible on the device or in Enlighten under 'Devices'). Required by Entrez to mint the token."
+				"description": "Visible on the device or in Enlighten under Devices."
 			},
 			"system_id": {
 				"title": "System ID",
 				"type": "string",
+				"placeholder": "1234567",
 				"condition": {
 					"functionBody": "return model.connection === 'api';"
 				},
@@ -95,7 +95,7 @@
 					"functionBody": "return model.connection === 'api';"
 				},
 				"required": true,
-				"description": "API Key shown in your application page on https://developer-v4.enphase.com"
+				"description": "From your application page on developer-v4.enphase.com"
 			},
 			"client_id": {
 				"title": "Client ID",
@@ -103,8 +103,7 @@
 				"condition": {
 					"functionBody": "return model.connection === 'api';"
 				},
-				"required": true,
-				"description": "OAuth 2.0 Client ID of your Enphase application."
+				"required": true
 			},
 			"client_secret": {
 				"title": "Client Secret",
@@ -112,8 +111,7 @@
 				"condition": {
 					"functionBody": "return model.connection === 'api';"
 				},
-				"required": true,
-				"description": "OAuth 2.0 Client Secret of your Enphase application."
+				"required": true
 			},
 			"refresh_token": {
 				"title": "Refresh token",
@@ -122,48 +120,146 @@
 					"functionBody": "return model.connection === 'api';"
 				},
 				"required": true,
-				"description": "OAuth 2.0 refresh token obtained via the authorization code flow. See README for instructions. Refresh tokens last ~1 month; the plugin auto-renews the access token from it."
-			},
-			"type": {
-				"title": "Production source (local only)",
-				"type": "string",
-				"condition": {
-					"functionBody": "return model.connection !== 'api';"
-				},
-				"default": "eim",
-				"oneOf": [
-					{ "title": "eim (CT clamp — default)", "enum": ["eim"] },
-					{ "title": "inverters (raw inverter output)", "enum": ["inverters"] }
-				],
-				"description": "The /production.json endpoint returns both values. See README for details."
-			},
-			"accessory_type": {
-				"title": "HomeKit accessory type",
-				"type": "string",
-				"default": "co2sensor",
-				"oneOf": [
-					{ "title": "CO2 sensor (default — exposes power in ppm and a Detected flag)", "enum": ["co2sensor"] },
-					{ "title": "Motion sensor (Detected when above threshold)", "enum": ["motion"] },
-					{ "title": "Occupancy sensor (Detected when above threshold)", "enum": ["occupancy"] },
-					{ "title": "Contact sensor (Open when above threshold)", "enum": ["contact"] },
-					{ "title": "Light sensor (exposes power as lux)", "enum": ["lightsensor"] }
-				],
-				"description": "How HomeKit will display this accessory. The CO2 sensor type exposes both the current power (as ppm) and a boolean Detected flag — switching with the latter is the historical behaviour. The other types only expose the binary state, except 'lightsensor' which displays the current power in lux."
+				"description": "Valid ~1 month. The plugin renews the access token automatically. See README for how to obtain it."
 			},
 			"update_interval": {
 				"title": "Update interval (minutes)",
 				"type": "integer",
 				"default": 5,
 				"minimum": 1,
-				"description": "How often the plugin polls the Envoy. The Cloud API only updates every 15 min and has a 10 000 req/month quota on the Watt plan; a 5 min refresh stays within budget. Local methods can poll every minute safely."
+				"description": "Cloud API: 5 min recommended (quota 10 000 req/month). Local: 1 min is fine."
 			},
-			"power_threshold": {
-				"title": "Power threshold (W)",
-				"type": "integer",
-				"default": 1000,
-				"minimum": 1,
-				"description": "When the current production reaches this value (in W), the accessory switches to its triggered state."
+			"accessories": {
+				"title": "Accessories",
+				"type": "array",
+				"items": {
+					"title": "Accessory",
+					"type": "object",
+					"properties": {
+						"name": {
+							"title": "Name",
+							"type": "string",
+							"required": true,
+							"placeholder": "Solar > 6000 W",
+							"description": "Display name in HomeKit — must be unique."
+						},
+						"measurement": {
+							"title": "Measurement",
+							"type": "string",
+							"default": "production",
+							"oneOf": [
+								{ "title": "Production — solar generation (W)", "enum": ["production"] },
+								{ "title": "Consumption — net grid exchange (W)", "enum": ["consumption"] }
+							],
+							"condition": {
+								"functionBody": "return model.connection !== 'api';"
+							},
+							"description": "Consumption: negative = exporting surplus to the grid. Local connections only."
+						},
+						"power_threshold": {
+							"title": "Threshold (W)",
+							"type": "integer",
+							"default": 1000,
+							"minimum": 1,
+							"description": "Production: triggers when ≥ threshold. Consumption: triggers when export ≥ threshold; resets when importing."
+						},
+						"accessory_type": {
+							"title": "HomeKit type",
+							"type": "string",
+							"default": "co2sensor",
+							"oneOf": [
+								{ "title": "CO2 sensor — power in ppm + Detected flag", "enum": ["co2sensor"] },
+								{ "title": "Motion sensor", "enum": ["motion"] },
+								{ "title": "Occupancy sensor", "enum": ["occupancy"] },
+								{ "title": "Contact sensor — Open when triggered", "enum": ["contact"] },
+								{ "title": "Light sensor — power in lux", "enum": ["lightsensor"] }
+							]
+						}
+					}
+				}
 			}
 		}
-	}
+	},
+	"layout": [
+		"name",
+		{
+			"type": "fieldset",
+			"title": "Connection",
+			"items": [
+				"connection",
+				"url"
+			]
+		},
+		{
+			"type": "fieldset",
+			"title": "Local authentication",
+			"condition": {
+				"functionBody": "return model.connection === 'bonjour' || model.connection === 'url';"
+			},
+			"items": [
+				"auth_method",
+				"token",
+				"enlighten_user",
+				{
+					"type": "flex",
+					"flex-flow": "row wrap",
+					"items": [
+						{ "key": "enlighten_pass", "flex": "1 1 200px" },
+						{ "key": "envoy_serial", "flex": "1 1 200px" }
+					]
+				}
+			]
+		},
+		{
+			"type": "fieldset",
+			"title": "Cloud API credentials",
+			"condition": {
+				"functionBody": "return model.connection === 'api';"
+			},
+			"items": [
+				{
+					"type": "flex",
+					"flex-flow": "row wrap",
+					"items": [
+						{ "key": "system_id", "flex": "1 1 150px" },
+						{ "key": "api_key", "flex": "2 1 250px" }
+					]
+				},
+				{
+					"type": "flex",
+					"flex-flow": "row wrap",
+					"items": [
+						{ "key": "client_id", "flex": "1 1 200px" },
+						{ "key": "client_secret", "flex": "1 1 200px" }
+					]
+				},
+				"refresh_token"
+			]
+		},
+		"update_interval",
+		{
+			"type": "fieldset",
+			"title": "Accessories",
+			"items": [
+				{
+					"key": "accessories",
+					"type": "array",
+					"items": [
+						{
+							"type": "div",
+							"displayFlex": true,
+							"flex-direction": "row",
+							"flex-wrap": "wrap",
+							"items": [
+								{ "key": "accessories[].name",            "flex": "2 1 180px" },
+								{ "key": "accessories[].measurement",     "flex": "2 1 160px" },
+								{ "key": "accessories[].power_threshold", "flex": "1 1 100px" },
+								{ "key": "accessories[].accessory_type",  "flex": "2 1 160px" }
+							]
+						}
+					]
+				}
+			]
+		}
+	]
 }

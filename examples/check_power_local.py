@@ -51,13 +51,26 @@ headers = {
     'Accept': 'application/json',
     'Authorization': f'Bearer {TOKEN}'
 }
-url = 'https://envoy.localdomain/ivp/meters/readings'
+BASE = 'https://envoy.localdomain'
 
-response = requests.get(url, headers=headers, verify=False)
-data = response.json()
+meters = requests.get(f'{BASE}/ivp/meters', headers=headers, verify=False).json()
+eid_production  = next((m['eid'] for m in meters if m['measurementType'] == 'production'),  None)
+eid_consumption = next((m['eid'] for m in meters if m['measurementType'] == 'net-consumption'), None)
 
-production = data[0]['activePower']
-consumption = data[1]['activePower']
+if eid_production is None or eid_consumption is None:
+    logging.error("Compteur 'production' ou 'net-consumption' introuvable dans /ivp/meters")
+    exit(1)
+
+readings = requests.get(f'{BASE}/ivp/meters/readings', headers=headers, verify=False).json()
+prod_entry = next((r for r in readings if r['eid'] == eid_production),  None)
+cons_entry = next((r for r in readings if r['eid'] == eid_consumption), None)
+
+if prod_entry is None or cons_entry is None:
+    logging.error("Lecture introuvable dans /ivp/meters/readings pour les eids attendus")
+    exit(1)
+
+production  = prod_entry['activePower']
+consumption = cons_entry['activePower']
 
 if not isinstance(production, (float, int)) or not isinstance(consumption, (float, int)):
     logging.error("Error: invalid production/consumption values")

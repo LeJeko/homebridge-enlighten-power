@@ -13,13 +13,13 @@
 
 > 🌐 [English version](README.md) · **Français**
 
-> ⚠️ **Mise à niveau depuis la 1.x ?** La version 2.0.0 introduit des changements non rétro-compatibles : l'accès local exige désormais HTTPS + un token Bearer, et l'API Cloud passe en v4 avec OAuth 2.0 (`client_id`, `client_secret`, `refresh_token` remplacent `api_user_id` et l'ancien `site_id`). Consultez le [CHANGELOG](CHANGELOG.md) avant de lancer `npm update`.
+> ⚠️ **Mise à niveau depuis la 2.x ?** La version 3.0.0 est un changement non rétro-compatible — le plugin est désormais une **platform dynamique**. Voir le [guide de migration](#migration-depuis-la-2x) ci-dessous.
 
 ## Description
 
-Ce plugin Homebridge expose la puissance produite par votre Envoy Enphase sous la forme d'un unique accessoire HomeKit. Quand la production atteint un seuil configurable, l'accessoire bascule dans son état déclenché (`détecté` / `mouvement` / `occupé` / `ouvert` / une valeur lux, selon le type choisi) — pratique comme source d'événement pour les automatisations HomeKit.
+Ce plugin Homebridge expose votre système solaire Enphase Envoy dans HomeKit sous forme d'un ou plusieurs capteurs. Chaque accessoire surveille soit la **production** (énergie générée), soit la **consommation** (échange net avec le réseau), et bascule dans son état déclenché quand la valeur franchit un seuil configurable — pratique comme source d'événement pour les automatisations HomeKit.
 
-Trois méthodes de connexion sont supportées — voir [Le plugin Homebridge](#le-plugin-homebridge) ci-dessous. Le dépôt fournit aussi trois [scripts Python](#scripts-python-compagnons) autonomes qui pilotent un relais Piface2 depuis un Raspberry Pi — ils sont **complètement indépendants de Homebridge** et existent pour les utilisateurs qui veulent commuter une charge 230 V à partir des données de l'Envoy.
+Tous les accessoires partagent une seule connexion Envoy et un seul token d'authentification. Trois méthodes de connexion sont supportées. Le dépôt fournit aussi trois [scripts Python](#scripts-python-compagnons) autonomes pour piloter un relais Piface2 depuis un Raspberry Pi — **complètement indépendants de Homebridge**.
 
 ---
 
@@ -36,11 +36,9 @@ Trois méthodes de connexion sont supportées — voir [Le plugin Homebridge](#l
 | - | --- | --- | --- |
 | **1** | [Local + **token statique**](#méthode-1--local--token-statique) | Simple, configuration la plus rapide. | Rotation manuelle du token ~une fois par an. |
 | **2** | [Local + **token auto-renouvelé**](#méthode-2--local--auto-refresh) | Plus jamais de rotation manuelle. | Mot de passe Enlighten stocké dans `config.json`. |
-| **3** | [**API Cloud v4** (OAuth 2.0)](#méthode-3--api-cloud-v4) | Fonctionne sans accès LAN à l'Envoy. | Quota 10 000 req/mois ; mise en place OAuth ponctuelle. |
+| **3** | [**API Cloud v4** (OAuth 2.0)](#méthode-3--api-cloud-v4) | Fonctionne sans accès LAN à l'Envoy. | Production uniquement ; quota 10 000 req/mois ; mise en place OAuth ponctuelle. |
 
-Les trois méthodes partagent les mêmes réglages [`accessory_type`](#type-daccessoire-homekit), `power_threshold` et `update_interval`.
-
-> Dans l'interface Homebridge, le menu déroulant *Connection* gère la méthode 3 face aux méthodes locales, et un menu *Authentication method* (`auth_method` dans le JSON) gère la méthode 1 face à la méthode 2. Seuls les champs pertinents s'affichent. Si vous éditez `config.json` à la main, vous pouvez omettre `auth_method` et ne renseigner que les champs nécessaires — le plugin déduit la méthode (le `token` l'emporte si les deux groupes sont remplis).
+> Dans l'interface Homebridge, le menu *Connection* gère la méthode 3 face aux méthodes locales, et le menu *Authentication method* gère la méthode 1 face à la méthode 2. Si vous éditez `config.json` à la main, vous pouvez omettre `auth_method` — le plugin déduit la méthode (le `token` l'emporte si les deux groupes sont remplis).
 
 ---
 
@@ -51,59 +49,74 @@ Accès HTTPS local avec un JWT longue durée que vous générez vous-même, **un
 #### 1. Générer le token
 
 1. Ouvrir <https://entrez.enphaseenergy.com> et se connecter.
-2. Générer un token pour votre Envoy (l'outil demande le numéro de série de l'Envoy).
-3. Copier le JWT dans `config.json` (voir ci-dessous). Il expire au bout d'environ 1 an — il faudra alors recommencer la procédure.
+2. Générer un token pour votre Envoy (l'outil demande le numéro de série).
+3. Copier le JWT dans `config.json` (voir ci-dessous). Il expire au bout d'environ 1 an.
 
-#### 2. config.json — Bonjour (pas besoin d'URL)
-
-```json
-{
-  "accessory": "enlighten-power",
-  "name": "> 6000 W",
-  "connection": "bonjour",
-  "token": "eyJraWQiOiI......biQETMEQ",
-  "type": "eim",
-  "update_interval": 1,
-  "power_threshold": 6000
-}
-```
-
-#### 3. config.json — URL personnalisée (p. ex. accès par IP)
+#### 2. config.json
 
 ```json
 {
-  "accessory": "enlighten-power",
-  "name": "> 6000 W",
-  "connection": "url",
-  "url": "https://envoy_ip/production.json",
-  "token": "eyJraWQiOiI......biQETMEQ",
-  "type": "inverters",
-  "update_interval": 1,
-  "power_threshold": 6000
+  "platforms": [
+    {
+      "platform": "EnlightenPower",
+      "name": "Enlighten Power",
+      "connection": "bonjour",
+      "token": "eyJraWQiOiI......biQETMEQ",
+      "update_interval": 1,
+      "accessories": [
+        { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 }
+      ]
+    }
+  ]
 }
 ```
 
-> **À propos de l'API locale.** `envoy.localdomain` est le nouveau nom mDNS utilisé par les firmwares récents (D8+) ; remplacez toute référence à `envoy.local`. L'Envoy fournit un certificat auto-signé — le plugin désactive la vérification TLS stricte uniquement pour les connexions locales. Le endpoint `/production.json` renvoie deux valeurs `wNow` : `inverters` (sortie brute des onduleurs) et `eim` (pince ampèremétrique). Le plugin lit `eim` par défaut ; `"type": "inverters"` pour basculer.
+URL personnalisée (accès par IP) :
+
+```json
+{
+  "platforms": [
+    {
+      "platform": "EnlightenPower",
+      "name": "Enlighten Power",
+      "connection": "url",
+      "url": "https://192.168.1.x",
+      "token": "eyJraWQiOiI......biQETMEQ",
+      "update_interval": 1,
+      "accessories": [
+        { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 },
+        { "name": "Export > 4500 W",     "measurement": "consumption", "power_threshold": 4500 }
+      ]
+    }
+  ]
+}
+```
+
+> **À propos de l'API locale.** `envoy.localdomain` est le nom mDNS utilisé par les firmwares D8+. L'Envoy fournit un certificat auto-signé — le plugin désactive la vérification TLS stricte uniquement pour les connexions locales. Au démarrage, le plugin appelle `/ivp/meters` pour associer le `eid` de chaque compteur à son `measurementType` (`"production"` ou `"net-consumption"`). À chaque cycle, il appelle `/ivp/meters/readings` et retrouve les entrées par `eid` — pas par position dans le tableau.
 
 ---
 
 ### Méthode 2 — Local + auto-refresh
 
-Même accès local qu'à la méthode 1, mais le plugin **obtient et renouvelle le JWT pour vous**, automatiquement. Recommandé si vous voulez l'installer et l'oublier.
-
-Fournissez vos identifiants Enlighten et le numéro de série de l'Envoy dans `config.json` (omettez `token`) :
+Même accès local qu'à la méthode 1, mais le plugin **obtient et renouvelle le JWT pour vous**, automatiquement.
 
 ```json
 {
-  "accessory": "enlighten-power",
-  "name": "> 6000 W",
-  "connection": "bonjour",
-  "enlighten_user": "vous@example.com",
-  "enlighten_pass": "MOT_DE_PASSE_ENLIGHTEN",
-  "envoy_serial": "1234XXXXXXXX",
-  "type": "eim",
-  "update_interval": 1,
-  "power_threshold": 6000
+  "platforms": [
+    {
+      "platform": "EnlightenPower",
+      "name": "Enlighten Power",
+      "connection": "bonjour",
+      "auth_method": "auto_refresh",
+      "enlighten_user": "vous@example.com",
+      "enlighten_pass": "MOT_DE_PASSE_ENLIGHTEN",
+      "envoy_serial": "1234XXXXXXXX",
+      "update_interval": 1,
+      "accessories": [
+        { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 }
+      ]
+    }
+  ]
 }
 ```
 
@@ -111,27 +124,23 @@ Ce qui se passe à l'exécution :
 
 1. Au démarrage, le plugin se connecte à `enlighten.enphaseenergy.com` avec vos identifiants.
 2. Il demande à `entrez.enphaseenergy.com` un JWT frais lié au numéro de série de votre Envoy.
-3. Le JWT est mis en cache en mémoire et réutilisé à chaque appel de l'Envoy.
+3. Le JWT est mis en cache en mémoire et réutilisé à chaque poll.
 4. Quand le JWT arrive à moins de 7 jours d'expiration — ou après un `401` de l'Envoy — un nouveau JWT est récupéré automatiquement.
-
-> **Notes.** Si vous définissez à la fois `token` et les champs `enlighten_*`, le `token` statique prime. Votre mot de passe Enlighten est stocké en clair dans `config.json` — même niveau de confiance que le reste de votre config Homebridge, mais utile à savoir.
-
-L'URL personnalisée fonctionne pareil : passez à `"connection": "url"` et ajoutez le champ `"url"` — gardez les trois champs `enlighten_*`.
 
 ---
 
 ### Méthode 3 — API Cloud v4
 
-Accès OAuth 2.0 à l'API développeur Enphase. À utiliser quand votre Homebridge ne peut pas joindre l'Envoy sur le réseau local. Plans : <https://developer-v4.enphase.com/plans>. Le plan Watt autorise 10 000 requêtes/mois — un rafraîchissement toutes les 5 minutes reste dans le budget (12 × 24 × 31 = 8928).
+Accès OAuth 2.0 à l'API développeur Enphase. À utiliser quand Homebridge ne peut pas joindre l'Envoy sur le réseau local. **Seule la mesure `production` est disponible** (l'API Cloud n'expose pas la consommation nette instantanée).
+
+Plans : <https://developer-v4.enphase.com/plans>. Le plan Watt autorise 10 000 requêtes/mois — un rafraîchissement toutes les 5 minutes reste dans le budget (12 × 24 × 31 = 8928).
 
 #### Étape 1 — Créer l'application
 
 Sur <https://developer-v4.enphase.com>, créez une application. La page affiche :
 
-- **API Key**
-- **Client ID**
-- **Client Secret**
-- **Authorization URL**, de la forme `https://api.enphaseenergy.com/oauth/authorize?response_type=code&client_id=VOTRE_CLIENT_ID`
+- **API Key** · **Client ID** · **Client Secret**
+- **Authorization URL** de la forme `https://api.enphaseenergy.com/oauth/authorize?response_type=code&client_id=VOTRE_CLIENT_ID`
 
 Vous avez aussi besoin de votre **System ID** (identifiant numérique du système Enlighten, anciennement *site_id*).
 
@@ -141,7 +150,7 @@ Vous avez aussi besoin de votre **System ID** (identifiant numérique du systèm
 
 URL complète :
 
-```
+```text
 https://api.enphaseenergy.com/oauth/authorize?response_type=code&client_id=VOTRE_CLIENT_ID&redirect_uri=https://api.enphaseenergy.com/oauth/redirect_uri
 ```
 
@@ -149,101 +158,170 @@ Ouvrez-la, connectez-vous à Enlighten, approuvez. La page de redirection affich
 
 #### Étape 3 — Échanger le code contre un refresh_token
 
-Le refresh token **n'est pas** affiché dans le portail — vous le générez vous-même, une fois.
-
-Avec curl :
-
 ```bash
 curl -X POST \
   -u "CLIENT_ID:CLIENT_SECRET" \
   "https://api.enphaseenergy.com/oauth/token?grant_type=authorization_code&redirect_uri=https://api.enphaseenergy.com/oauth/redirect_uri&code=AUTH_CODE"
 ```
 
-Ou avec l'utilitaire [`examples/get_refresh_token.py`](examples/get_refresh_token.py) (renseignez `CLIENT_ID` / `CLIENT_SECRET` une fois) :
+Ou avec [`examples/get_refresh_token.py`](examples/get_refresh_token.py) :
 
 ```bash
 python3 examples/get_refresh_token.py 2TJk7M
 ```
 
-Réponse :
-
-```json
-{
-  "access_token": "...",
-  "token_type": "bearer",
-  "refresh_token": "...",
-  "expires_in": 86400,
-  "scope": "read write",
-  ...
-}
-```
-
-`refresh_token` est valable ~1 mois — copiez-le dans `config.json`. Le plugin l'utilise pour renouveler l'access token 24h automatiquement. À son expiration, refaites les étapes 2-3.
+Copiez le `refresh_token` de la réponse — valable ~1 mois. Le plugin renouvelle l'access token 24h automatiquement. À l'expiration du refresh token, refaites les étapes 2-3.
 
 #### Étape 4 — config.json
 
 ```json
 {
-  "accessory": "enlighten-power",
-  "name": "> 6000 W",
-  "connection": "api",
-  "api_key": "API_KEY",
-  "client_id": "CLIENT_ID",
-  "client_secret": "CLIENT_SECRET",
-  "system_id": "SYSTEM_ID",
-  "refresh_token": "REFRESH_TOKEN",
-  "update_interval": 5,
-  "power_threshold": 6000
+  "platforms": [
+    {
+      "platform": "EnlightenPower",
+      "name": "Enlighten Power",
+      "connection": "api",
+      "api_key": "API_KEY",
+      "client_id": "CLIENT_ID",
+      "client_secret": "CLIENT_SECRET",
+      "system_id": "SYSTEM_ID",
+      "refresh_token": "REFRESH_TOKEN",
+      "update_interval": 5,
+      "accessories": [
+        { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 }
+      ]
+    }
+  ]
 }
 ```
+
+---
+
+### Accessoires
+
+Chaque entrée du tableau `accessories` est un capteur HomeKit indépendant. Tous partagent la connexion et l'authentification de la plateforme.
+
+| Champ | Requis | Défaut | Description |
+| --- | --- | --- | --- |
+| `name` | ✅ | — | Nom affiché dans HomeKit. Doit être unique. |
+| `measurement` | | `production` | `production` (énergie solaire générée) ou `consumption` (échange net réseau — connexions locales uniquement). |
+| `power_threshold` | | `1000` | Seuil de déclenchement en W. Voir ci-dessous. |
+| `accessory_type` | | `co2sensor` | Type de capteur HomeKit — voir [Type d'accessoire HomeKit](#type-daccessoire-homekit). |
+
+**Mode production** — se déclenche quand `production ≥ seuil` ; se réinitialise en dessous.
+
+**Mode consommation** (connexions locales uniquement) — reproduit l'hystérésis des scripts Piface :
+
+- `detected → 1` quand `net ≤ −seuil` (la maison exporte plus que le seuil vers le réseau).
+- `detected → 0` quand `net ≥ 0` (la maison importe depuis le réseau).
+- Le niveau affiché est la valeur absolue de l'échange réseau en W.
+
+> Si un accessoire `consumption` est configuré avec `connection: api`, le plugin logge un avertissement et retombe sur `production`.
 
 ---
 
 ### Type d'accessoire HomeKit
 
-`accessory_type` contrôle comment le capteur apparaît dans HomeKit. Même champ pour les trois méthodes de connexion.
-
 | Valeur | Service HomeKit | Comportement |
 | --- | --- | --- |
-| `co2sensor` (défaut) | Capteur CO2 | Puissance en ppm + drapeau Détecté au-dessus du seuil. Comportement historique. |
-| `motion` | Détecteur de mouvement | "Mouvement" détecté au-dessus du seuil. |
-| `occupancy` | Détecteur de présence | "Occupé" au-dessus du seuil. |
-| `contact` | Capteur de contact | "Ouvert" au-dessus du seuil. |
-| `lightsensor` | Capteur de luminosité | Puissance en lux (plafonné à 100 000). |
-
-Exemple combinant `lightsensor` avec la méthode 1 :
-
-```json
-{
-  "accessory": "enlighten-power",
-  "name": "Production solaire",
-  "connection": "bonjour",
-  "token": "eyJraWQiOiI......biQETMEQ",
-  "accessory_type": "lightsensor",
-  "power_threshold": 6000
-}
-```
+| `co2sensor` (défaut) | Capteur CO2 | Puissance en ppm + drapeau Détecté au-dessus du seuil. |
+| `motion` | Détecteur de mouvement | Mouvement détecté au-dessus du seuil. |
+| `occupancy` | Détecteur de présence | Occupé au-dessus du seuil. |
+| `contact` | Capteur de contact | Ouvert au-dessus du seuil. |
+| `lightsensor` | Capteur de luminosité | Puissance en lux (plafonnée à 100 000). |
 
 ---
 
 ### Test rapide depuis un shell
 
-Envoy local :
+Envoy local — lectures des compteurs :
 
 ```bash
-curl -sk -H "Authorization: Bearer TOKEN" "https://envoy.localdomain/production.json" \
-  | python3 -c "import sys, json; print(json.load(sys.stdin)['production'][1]['wNow'])"
+curl -sk -H "Authorization: Bearer TOKEN" "https://envoy.localdomain/ivp/meters/readings" \
+  | python3 -c "import sys, json; d=json.load(sys.stdin); print('prod', d[0]['activePower'], 'W  net', d[1]['activePower'], 'W')"
 ```
 
-Affiche la production `eim` courante, p. ex. `5788.47`.
+---
+
+## Migration depuis la 2.x
+
+> ⚠️ **Désinstallation propre obligatoire.** Le type du plugin ayant changé d'`accessory` à `platform`, Homebridge génère les UUIDs différemment et les données de cache de l'ancien accessoire entrent en conflit. **Ne faites pas une simple mise à jour** — suivez les étapes ci-dessous.
+
+### Étapes de migration — via l'interface Homebridge
+
+1. **Onglet Plugins → Homebridge Enlighten Power → Désinstaller.** Confirmer. Cela arrête le child bridge et supprime le plugin.
+2. **Onglet Accessories** — si l'ancien accessoire est encore listé, cliquer sur l'icône ⚙️ → *Supprimer l'accessoire*. Si l'onglet est vide ou que l'accessoire a disparu, passer à l'étape suivante.
+3. **Settings → Config** (éditeur JSON) — vérifier que le tableau `"accessories"` ne contient plus aucun bloc `"accessory": "enlighten-power"`. Sauvegarder.
+4. **Settings → Homebridge Settings → Redémarrer Homebridge** une fois pour vider le cache des accessoires.
+5. **Onglet Plugins → rechercher "Homebridge Enlighten Power" → Installer**, ou depuis un terminal : `npm install -g homebridge-enlighten-power`.
+6. **Configurer** le plugin via l'interface graphique des réglages ou en éditant `config.json` comme indiqué ci-dessous.
+7. **Supprimer de HomeKit** si l'accessoire apparaît toujours comme non répondant dans l'app Maison : appui long → *Supprimer l'accessoire*.
+
+### Étapes de migration — via terminal (avancé)
+
+```bash
+# 1. Désinstaller
+npm uninstall -g homebridge-enlighten-power
+
+# 2. Supprimer le cache des accessoires
+rm /homebridge/accessories/cachedAccessories
+rm /homebridge/accessories/cachedAccessories.*.json 2>/dev/null
+
+# 3. Réinstaller
+npm install -g homebridge-enlighten-power   # version stable
+
+# 4. Éditer config.json, puis redémarrer Homebridge
+```
+
+### Changements de config
+
+Le plugin est désormais une **platform** (`"platform": "EnlightenPower"`) et non plus un accessoire (`"accessory": "enlighten-power"`). La config doit être déplacée de la section `accessories` vers la section `platforms`.
+
+**Avant** (`config.json` — v2.x) :
+
+```json
+{
+  "accessories": [
+    {
+      "accessory": "enlighten-power",
+      "name": "> 6000 W",
+      "connection": "bonjour",
+      "token": "...",
+      "power_threshold": 6000,
+      "accessory_type": "motion"
+    }
+  ]
+}
+```
+
+**Après** (`config.json` — v3.x) :
+
+```json
+{
+  "platforms": [
+    {
+      "platform": "EnlightenPower",
+      "name": "Enlighten Power",
+      "connection": "bonjour",
+      "token": "...",
+      "accessories": [
+        {
+          "name": "> 6000 W",
+          "measurement": "production",
+          "power_threshold": 6000,
+          "accessory_type": "motion"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ---
 
 ## Scripts Python compagnons
 
-Le dépôt fournit également trois scripts Python autonomes dans [`examples/`](examples/). Ils sont **indépendants de Homebridge** — ils existent pour les utilisateurs qui veulent piloter directement un **relais Piface2** depuis un Raspberry Pi (chauffe-eau, chargeur de VE, n'importe quelle charge 230 V) à partir des données de l'Envoy, en parallèle des automatisations HomeKit.
-
-Vous pouvez ignorer complètement cette section si vous n'utilisez que le plugin Homebridge.
+Le dépôt fournit également trois scripts Python autonomes dans [`examples/`](examples/). Ils sont **indépendants de Homebridge** — pour les utilisateurs qui veulent piloter directement un **relais Piface2** depuis un Raspberry Pi à partir des données de l'Envoy.
 
 ### Installer pifacedigitalio
 
@@ -256,38 +334,25 @@ sudo sed -i 's/#dtparam=spi=on/dtparam=spi=on/' /boot/config.txt
 sudo reboot
 ```
 
-Éditez les constantes (`TOKEN` / `API_KEY` / `CLIENT_ID` / …) en tête de chaque script avant de l'exécuter. `examples/refresh_token.txt` est gitignoré — gardez-le privé.
-
 ### [`examples/check_power_local.py`](examples/check_power_local.py)
 
 Accès local à l'Envoy (HTTPS + token Bearer). Lit production et consommation depuis `/ivp/meters/readings` et pilote un ou deux relais Piface2.
 
-**Options CLI**
-
-- `--mode production --value <W>` — relais ON quand la production totale ≥ `<W>`, OFF sinon.
-- `--mode consumption --value <W>` — relais ON quand la maison exporte plus de `<W>` vers le réseau ; OFF dès qu'elle importe (hystérésis pour éviter les oscillations).
-- `--relay {0,1} [{0,1} ...]` — index(es) du/des relais Piface à piloter. Défaut : `0`. `--relay 0 1` actionne les deux relais en miroir.
+- `--mode production --value <W>` — relais ON quand la production ≥ valeur, OFF sinon.
+- `--mode consumption --value <W>` — relais ON quand la maison exporte plus que la valeur ; OFF dès qu'elle importe (hystérésis).
+- `--relay {0,1} [{0,1} ...]` — index(es) du/des relais. Défaut : `0`. `--relay 0 1` actionne les deux.
 
 ### [`examples/check_power_api.py`](examples/check_power_api.py)
 
-API Cloud v4 — **autonome** :
-
-- Au premier lancement, affiche l'Authorization URL d'Enphase et demande le code d'autorisation à usage unique renvoyé par la redirection navigateur.
-- Échange ce code contre un `refresh_token`, sauvé à côté du script dans `refresh_token.txt` (permissions 600).
-- Aux lancements suivants, réutilise le `refresh_token` stocké et renouvelle automatiquement l'access token (durée 24 h).
-- Si le `refresh_token` est rejeté (expiré ~1 mois plus tard), le script redemande un code d'autorisation et met à jour le fichier.
-
-> Note cron : le prompt interactif exige un TTY, assurez-vous que `refresh_token.txt` existe déjà avant de planifier le script.
+API Cloud v4 — autonome. Gère le flux OAuth complet, stocke le refresh token dans `refresh_token.txt` et renouvelle automatiquement l'access token.
 
 ### [`examples/get_refresh_token.py`](examples/get_refresh_token.py)
 
-Utilitaire autonome pour l'échange OAuth. Pratique si vous voulez uniquement un `refresh_token` à coller dans le `config.json` de Homebridge, sans la logique Piface.
+Utilitaire autonome pour l'échange OAuth.
 
 ```bash
 python3 examples/get_refresh_token.py <CODE_AUTORISATION>
 ```
-
-Affiche le `refresh_token` sur stdout.
 
 ### Exemple cron
 

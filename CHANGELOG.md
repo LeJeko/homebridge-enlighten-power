@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] — 2026-05-30
+
+> ⚠️ **Breaking change** — requires a clean uninstall before upgrading from 2.x. See the [migration guide](README.md#migrating-from-2x).
+
+The plugin is now a **dynamic platform** (`"platform": "EnlightenPower"`). Config must be moved from the `accessories` section to the `platforms` section in `config.json`.
+
+### Added
+
+- **Dynamic platform** (`registerPlatform`): multiple HomeKit accessories sharing a single Envoy connection and a single OAuth/JWT token. One HTTP request per polling cycle regardless of the number of accessories.
+- **`consumption` measurement** (local connections only): monitor the net grid exchange (`activePower` of the `net-consumption` CT) instead of — or alongside — production.
+  - Hysteresis: `detected → 1` when net ≤ −threshold (exporting surplus); `detected → 0` when net ≥ 0 (importing). Same logic as `examples/check_power_local.py`.
+  - Hidden automatically in the settings UI when Cloud API is selected.
+- **Reliable CT identification via `/ivp/meters`**: at startup the plugin maps each meter's `eid` to its `measurementType` (`production`, `net-consumption`), then looks up readings by `eid` in `/ivp/meters/readings` — no positional assumptions on array order.
+- **`accessories` array** in the platform config: each entry has `name`, `measurement`, `power_threshold`, and `accessory_type`.
+- **Settings UI overhaul**: fields grouped into sections (*Connection*, *Local authentication*, *Cloud API credentials*); credentials displayed side-by-side; summary table in the header.
+
+### Removed
+
+- `registerAccessory` / `"accessory": "enlighten-power"` — platform only from now on.
+- `type` field (`eim` / `inverters`): superseded by the `/ivp/meters` CT identification.
+
+### Changed
+
+- Local connections now call `/ivp/meters/readings` (instantaneous `activePower`) instead of `/production.json` (`wNow`).
+- `url` field expects the **base URL** of the Envoy (e.g. `https://192.168.1.x`); a full URL with a path is still accepted and stripped automatically.
+- `examples/check_power_local.py` updated to use the same `/ivp/meters` → `eid` → `/ivp/meters/readings` approach.
+
+---
+
 ## [2.1.1] — 2026-05-22
 
 UX polish on the 2.1.0 settings GUI — no runtime behaviour change for existing configs.
