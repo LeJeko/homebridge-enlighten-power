@@ -201,7 +201,7 @@
 					"type": "flex",
 					"flex-flow": "row wrap",
 					"items": [
-						{ "key": "enlighten_pass", "flex": "1 1 200px" },
+						{ "key": "enlighten_pass", "type": "password", "flex": "1 1 200px" },
 						{ "key": "envoy_serial", "flex": "1 1 200px" }
 					]
 				}
