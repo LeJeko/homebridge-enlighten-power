@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] — 2026-05-30
+
+### Added
+
+- **`consumption` measurement now available with Cloud API v4** — the plugin uses the `latest_telemetry` endpoint (production + consumption in a single call) instead of `/summary`.
+- **Clock-aligned polling** — after the first poll at startup, subsequent polls fire at clock boundaries (e.g. every hour on the hour with `update_interval: 60`).
+
+### Fixed
+
+- Cloud API quota corrected from 10 000 to **1 000 requests/month** (Enphase reduced the free tier limit). Default `update_interval` updated to 60 min accordingly.
+- Node.js engine requirement relaxed to `^18.15.0 || ^20.0.0 || ^22.0.0 || ^24.0.0`.
+
+---
+
 ## [3.0.0] — 2026-05-30
 
 > ⚠️ **Breaking change** — requires a clean uninstall before upgrading from 2.x. See the [migration guide](README.md#migrating-from-2x).

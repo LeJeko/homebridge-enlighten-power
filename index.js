@@ -116,7 +116,19 @@ class EnlightenPowerPlatform {
     }
 
     this.pollAll();
-    setInterval(() => this.pollAll(), this.updateInterval * 60000);
+    const scheduleNext = () => {
+      setTimeout(() => { this.pollAll(); scheduleNext(); }, this.msUntilNextSlot());
+    };
+    scheduleNext();
+  }
+
+  msUntilNextSlot() {
+    const now = new Date();
+    const intervalMs = this.updateInterval * 60000;
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const msIntoSlot = (now - startOfDay) % intervalMs;
+    return intervalMs - msIntoSlot;
   }
 
   async pollAll() {
@@ -125,9 +137,15 @@ class EnlightenPowerPlatform {
 
       if (this.connection === "api") {
         const token = await this.refreshAccessToken();
-        const url = `https://api.enphaseenergy.com/api/v4/systems/${this.system_id}/summary?key=${this.api_key}`;
+        const url = `https://api.enphaseenergy.com/api/v4/systems/${this.system_id}/latest_telemetry?key=${this.api_key}`;
         const json = await this.requestJson(url, token);
-        data = { production: Math.round(parseFloat(json.current_power)) };
+        const meters = json.devices && json.devices.meters ? json.devices.meters : [];
+        const prod = meters.filter(m => m.name === "production").reduce((s, m) => s + (m.power || 0), 0);
+        const cons = meters.filter(m => m.name === "consumption").reduce((s, m) => s + (m.power || 0), 0);
+        data = {
+          production: Math.round(prod),
+          consumption: Math.round(cons - prod), // net réseau : négatif = export
+        };
       } else {
         const token = await this.ensureLocalToken();
 
@@ -384,14 +402,6 @@ class EnlightenPowerAccessory {
     this.threshold = config.power_threshold || 1000;
     this.measurement = (config.measurement || "production").toLowerCase();
 
-    if (this.measurement === "consumption" && connection === "api") {
-      this.log.warn(
-        "[%s] 'consumption' n'est pas disponible avec la connexion 'api' (Cloud API v4 ne fournit que la production). " +
-        "Repli sur 'production'.",
-        this.name
-      );
-      this.measurement = "production";
-    }
 
     const wantedType = (config.accessory_type || "co2sensor").toLowerCase();
     this.accessoryType = ACCESSORY_TYPES.includes(wantedType) ? wantedType : "co2sensor";

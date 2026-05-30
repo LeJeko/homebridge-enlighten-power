@@ -36,7 +36,7 @@ Tous les accessoires partagent une seule connexion Envoy et un seul token d'auth
 | - | --- | --- | --- |
 | **1** | [Local + **token statique**](#méthode-1--local--token-statique) | Simple, configuration la plus rapide. | Rotation manuelle du token ~une fois par an. |
 | **2** | [Local + **token auto-renouvelé**](#méthode-2--local--auto-refresh) | Plus jamais de rotation manuelle. | Mot de passe Enlighten stocké dans `config.json`. |
-| **3** | [**API Cloud v4** (OAuth 2.0)](#méthode-3--api-cloud-v4) | Fonctionne sans accès LAN à l'Envoy. | Production uniquement ; quota 10 000 req/mois ; mise en place OAuth ponctuelle. |
+| **3** | [**API Cloud v4** (OAuth 2.0)](#méthode-3--api-cloud-v4) | Fonctionne sans accès LAN à l'Envoy. Production + consommation. | 1 000 req/mois ; intervalle 60 min recommandé ; mise en place OAuth ponctuelle. |
 
 > Dans l'interface Homebridge, le menu *Connection* gère la méthode 3 face aux méthodes locales, et le menu *Authentication method* gère la méthode 1 face à la méthode 2. Si vous éditez `config.json` à la main, vous pouvez omettre `auth_method` — le plugin déduit la méthode (le `token` l'emporte si les deux groupes sont remplis).
 
@@ -133,7 +133,7 @@ Ce qui se passe à l'exécution :
 
 Accès OAuth 2.0 à l'API développeur Enphase. À utiliser quand Homebridge ne peut pas joindre l'Envoy sur le réseau local. **Seule la mesure `production` est disponible** (l'API Cloud n'expose pas la consommation nette instantanée).
 
-Plans : <https://developer-v4.enphase.com/plans>. Le plan Watt autorise 10 000 requêtes/mois — un rafraîchissement toutes les 5 minutes reste dans le budget (12 × 24 × 31 = 8928).
+Plans : <https://developer-v4.enphase.com/plans>. Le quota du plan gratuit a été **réduit de 10 000 à 1 000 requêtes/mois** par Enphase. Réglez `update_interval` à **60** (1 requête/heure = 720/mois) pour rester dans le budget. Le plugin effectue un premier poll au démarrage, puis aligne les suivants sur les limites de l'horloge — avec `update_interval: 60` les données sont rafraîchies à l'heure pile (10:00, 11:00, …). Le plugin utilise l'endpoint `latest_telemetry` qui retourne production et consommation en un seul appel, donc la mesure `consumption` est aussi disponible avec l'API Cloud.
 
 #### Étape 1 — Créer l'application
 
@@ -186,7 +186,7 @@ Copiez le `refresh_token` de la réponse — valable ~1 mois. Le plugin renouvel
       "client_secret": "CLIENT_SECRET",
       "system_id": "SYSTEM_ID",
       "refresh_token": "REFRESH_TOKEN",
-      "update_interval": 5,
+      "update_interval": 60,
       "accessories": [
         { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 }
       ]
@@ -204,13 +204,13 @@ Chaque entrée du tableau `accessories` est un capteur HomeKit indépendant. Tou
 | Champ | Requis | Défaut | Description |
 | --- | --- | --- | --- |
 | `name` | ✅ | — | Nom affiché dans HomeKit. Doit être unique. |
-| `measurement` | | `production` | `production` (énergie solaire générée) ou `consumption` (échange net réseau — connexions locales uniquement). |
+| `measurement` | | `production` | `production` (énergie solaire générée) ou `consumption` (échange net réseau). Disponible pour toutes les connexions. |
 | `power_threshold` | | `1000` | Seuil de déclenchement en W. Voir ci-dessous. |
 | `accessory_type` | | `co2sensor` | Type de capteur HomeKit — voir [Type d'accessoire HomeKit](#type-daccessoire-homekit). |
 
 **Mode production** — se déclenche quand `production ≥ seuil` ; se réinitialise en dessous.
 
-**Mode consommation** (connexions locales uniquement) — reproduit l'hystérésis des scripts Piface :
+**Mode consommation** — reproduit l'hystérésis des scripts Piface :
 
 - `detected → 1` quand `net ≤ −seuil` (la maison exporte plus que le seuil vers le réseau).
 - `detected → 0` quand `net ≥ 0` (la maison importe depuis le réseau).

@@ -36,7 +36,7 @@ All accessories share a single Envoy connection and a single authentication toke
 | - | --- | --- | --- |
 | **1** | [Local + **static token**](#method-1--local--static-token) | Simple, fastest setup. | Manual token rotation ~once a year. |
 | **2** | [Local + **auto-refreshed token**](#method-2--local--auto-refresh) | No manual rotation ever. | Your Enlighten password sits in `config.json`. |
-| **3** | [**Cloud API v4** (OAuth 2.0)](#method-3--cloud-api-v4) | Works without LAN access to the Envoy. | Production only; 10 000 req/month quota; one-time OAuth setup. |
+| **3** | [**Cloud API v4** (OAuth 2.0)](#method-3--cloud-api-v4) | Works without LAN access to the Envoy. Production + consumption. | 1 000 req/month quota; 60 min interval recommended; one-time OAuth setup. |
 
 > In the Homebridge UI, the *Connection* dropdown handles method 3 vs. the local methods, and an *Authentication method* dropdown handles method 1 vs. method 2. If you edit `config.json` by hand you can skip `auth_method` and just fill the fields you need — the plugin infers the method (`token` wins if both groups are set).
 
@@ -131,9 +131,9 @@ What happens at runtime:
 
 ### Method 3 — Cloud API v4
 
-OAuth 2.0 access to the Enphase developer API. Use this when Homebridge cannot reach the Envoy on the local network. **Only the `production` measurement is available** (the Cloud API does not expose instantaneous net consumption).
+OAuth 2.0 access to the Enphase developer API. Use this when Homebridge cannot reach the Envoy on the local network. Both `production` and `consumption` measurements are available via the `latest_telemetry` endpoint.
 
-Plans: <https://developer-v4.enphase.com/plans>. The Watt plan allows 10 000 requests/month — a 5-minute refresh stays within budget (12 × 24 × 31 = 8928).
+Plans: <https://developer-v4.enphase.com/plans>. The free tier quota was **reduced from 10 000 to 1 000 requests/month** by Enphase. Set `update_interval` to **60** (1 request/hour = 720/month) to stay within budget. The plugin polls once immediately on startup, then aligns subsequent polls to clock boundaries — with `update_interval: 60` the data refreshes at the top of every hour (10:00, 11:00, …). The plugin uses the `latest_telemetry` endpoint which returns both production and consumption in a single call, so the `consumption` measurement is also available with the Cloud API.
 
 #### Step 1 — Create the application
 
@@ -186,7 +186,7 @@ Copy the `refresh_token` from the response — valid ~1 month. The plugin renews
       "client_secret": "CLIENT_SECRET",
       "system_id": "SYSTEM_ID",
       "refresh_token": "REFRESH_TOKEN",
-      "update_interval": 5,
+      "update_interval": 60,
       "accessories": [
         { "name": "> 6000 W production", "measurement": "production", "power_threshold": 6000 }
       ]
@@ -204,7 +204,7 @@ Each accessory in the `accessories` array is an independent HomeKit sensor. All 
 | Field | Required | Default | Description |
 | --- | --- | --- | --- |
 | `name` | ✅ | — | Display name in HomeKit. Must be unique. |
-| `measurement` | | `production` | `production` (solar generation) or `consumption` (net grid exchange — local only). |
+| `measurement` | | `production` | `production` (solar generation) or `consumption` (net grid exchange). Available for all connection types. |
 | `power_threshold` | | `1000` | Trigger level in W. See below for per-measurement logic. |
 | `accessory_type` | | `co2sensor` | HomeKit sensor type — see [HomeKit accessory type](#homekit-accessory-type). |
 
@@ -216,7 +216,7 @@ Each accessory in the `accessories` array is an independent HomeKit sensor. All 
 - `detected → 0` when `net ≥ 0` (house is importing from the grid).
 - The displayed level is the absolute grid exchange value in W.
 
-> If a `consumption` accessory is configured with `connection: api`, the plugin logs a warning and falls back to `production`.
+> The `consumption` measurement is available for all connection types, including the Cloud API (via the `latest_telemetry` endpoint).
 
 ---
 
