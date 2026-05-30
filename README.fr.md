@@ -131,9 +131,9 @@ Ce qui se passe à l'exécution :
 
 ### Méthode 3 — API Cloud v4
 
-Accès OAuth 2.0 à l'API développeur Enphase. À utiliser quand Homebridge ne peut pas joindre l'Envoy sur le réseau local. **Seule la mesure `production` est disponible** (l'API Cloud n'expose pas la consommation nette instantanée).
+Accès OAuth 2.0 à l'API développeur Enphase. À utiliser quand Homebridge ne peut pas joindre l'Envoy sur le réseau local. Les mesures `production` et `consumption` sont disponibles via l'endpoint `latest_telemetry`.
 
-Plans : <https://developer-v4.enphase.com/plans>. Le quota du plan gratuit a été **réduit de 10 000 à 1 000 requêtes/mois** par Enphase. Réglez `update_interval` à **60** (1 requête/heure = 720/mois) pour rester dans le budget. Le plugin effectue un premier poll au démarrage, puis aligne les suivants sur les limites de l'horloge — avec `update_interval: 60` les données sont rafraîchies à l'heure pile (10:00, 11:00, …). Le plugin utilise l'endpoint `latest_telemetry` qui retourne production et consommation en un seul appel, donc la mesure `consumption` est aussi disponible avec l'API Cloud.
+Plans : <https://developer-v4.enphase.com/plans>. Le quota du plan gratuit a été **réduit de 10 000 à 1 000 requêtes/mois** par Enphase. Réglez `update_interval` à **60** (1 requête/heure = 720/mois) pour rester dans le budget. Le plugin effectue un premier poll au démarrage, puis aligne les suivants sur les limites de l'horloge — avec `update_interval: 60` les données sont rafraîchies à l'heure pile (10:00, 11:00, …).
 
 #### Étape 1 — Créer l'application
 
@@ -216,7 +216,7 @@ Chaque entrée du tableau `accessories` est un capteur HomeKit indépendant. Tou
 - `detected → 0` quand `net ≥ 0` (la maison importe depuis le réseau).
 - Le niveau affiché est la valeur absolue de l'échange réseau en W.
 
-> Si un accessoire `consumption` est configuré avec `connection: api`, le plugin logge un avertissement et retombe sur `production`.
+> La mesure `consumption` est disponible pour toutes les connexions, y compris l'API Cloud (via l'endpoint `latest_telemetry`).
 
 ---
 

@@ -133,7 +133,7 @@ What happens at runtime:
 
 OAuth 2.0 access to the Enphase developer API. Use this when Homebridge cannot reach the Envoy on the local network. Both `production` and `consumption` measurements are available via the `latest_telemetry` endpoint.
 
-Plans: <https://developer-v4.enphase.com/plans>. The free tier quota was **reduced from 10 000 to 1 000 requests/month** by Enphase. Set `update_interval` to **60** (1 request/hour = 720/month) to stay within budget. The plugin polls once immediately on startup, then aligns subsequent polls to clock boundaries — with `update_interval: 60` the data refreshes at the top of every hour (10:00, 11:00, …). The plugin uses the `latest_telemetry` endpoint which returns both production and consumption in a single call, so the `consumption` measurement is also available with the Cloud API.
+Plans: <https://developer-v4.enphase.com/plans>. The free tier quota was **reduced from 10 000 to 1 000 requests/month** by Enphase. Set `update_interval` to **60** (1 request/hour = 720/month) to stay within budget. The plugin polls once immediately on startup, then aligns subsequent polls to clock boundaries — with `update_interval: 60` the data refreshes at the top of every hour (10:00, 11:00, …).
 
 #### Step 1 — Create the application
 
@@ -210,7 +210,7 @@ Each accessory in the `accessories` array is an independent HomeKit sensor. All 
 
 **Production mode** — triggers when `production ≥ threshold`; resets below.
 
-**Consumption mode** (local connections only) — mirrors the hysteresis of the Piface scripts:
+**Consumption mode** — mirrors the hysteresis of the Piface scripts:
 
 - `detected → 1` when `net ≤ −threshold` (house is exporting more than threshold to the grid).
 - `detected → 0` when `net ≥ 0` (house is importing from the grid).

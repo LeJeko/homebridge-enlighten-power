@@ -1,7 +1,7 @@
 {
     "name": "homebridge-enlighten-power",
     "displayName": "Homebridge Enlighten Power",
-    "version": "3.0.2",
+    "version": "3.0.3",
     "main": "index.js",
     "description": "Homebridge dynamic platform plugin that exposes Enphase Envoy solar production and consumption as HomeKit sensors. Supports local HTTPS access (firmware D8+, Bearer token) and the Enphase Cloud API v4 (OAuth 2.0 refresh_token). Multiple accessories share a single connection.",
     "author": {
