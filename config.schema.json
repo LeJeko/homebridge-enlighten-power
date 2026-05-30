@@ -235,12 +235,12 @@
 		},
 		"update_interval",
 		{
-			"type": "fieldset",
+			"key": "accessories",
+			"type": "array",
 			"title": "Accessories",
 			"items": [
 				{
-					"key": "accessories",
-					"type": "array",
+					"type": "div",
 					"items": [
 						"accessories[].name",
 						{
